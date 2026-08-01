@@ -58,6 +58,7 @@ JSON summary on exit.
 - `internal/format` — plain/color/JSON line + summary rendering
 - `internal/tui` — live dashboard (raw mode, alt screen, block graphs)
 - `internal/app` — run loop wiring both modes
-- `issues/` — planned features
+- `docs/` — design decisions and testing guide ([index](docs/README.md))
+- `issues/` — planned features ([index](issues/README.md))
 
 Build with `make build`, test with `make check`.

@@ -1,0 +1,16 @@
+# proctop Issues
+
+Planned features and known gaps. One file per issue,
+`NNN-kebab-case.md`, each with a `Status:` line. Background reading in
+[docs/](../docs/README.md).
+
+| # | Issue | Status |
+|---|---|---|
+| [000](000-init.md) | Initial prompt (project genesis record) | done |
+| [001](001-loom-tui-integration.md) | Port the TUI to loom widgets | deferred (loom not mature yet) |
+| [002](002-process-picker.md) | Interactive process picker for ambiguous names | open |
+| [003](003-csv-export-and-format-templates.md) | CSV export + user-defined line templates | open |
+| [004](004-per-process-breakdown.md) | Per-process breakdown view | open |
+| [005](005-duration-limit-and-thresholds.md) | Run duration limit and threshold alerts | open |
+| [006](006-more-metrics-io-threads.md) | More metrics: IO, threads, PSS | open |
+| [007](007-app-integration-tests.md) | Integration tests for internal/app and the TUI | open |

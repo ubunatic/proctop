@@ -34,4 +34,8 @@ Run from project root. `make help` lists all targets
   by `go test ./spec/...` (`make validate-spec`). When adding user-facing
   text or a key binding: update the YAML, the schema, and the spec tests —
   never hardcode it in Go. Ctrl-C stays hardcoded as last-resort quit.
-- Planned features are tracked as `issues/NNN-kebab-case.md` files.
+- Planned features are tracked as `issues/NNN-kebab-case.md` files with a
+  `Status:` line; keep `issues/README.md` in sync.
+- Evergreen docs live in `docs/`: read `docs/Design.md` before changing
+  sampling math, target resolution, or the spec layout; `docs/Testing.md`
+  explains the pty harness for TUI verification.
