@@ -15,6 +15,7 @@ defaults:
 
 keys:
   quit: ["q", "Q", "<c-c>", "<esc>"]
+  pause: ["p", "P", "<space>"]
 
 # 256-color ANSI palette indices per semantic token.
 theme:
@@ -39,6 +40,8 @@ labels:
   elapsed: "elapsed"
   interval: "interval"
   hint_quit: "[q] quit"
+  hint_pause: "[p] pause/play"
+  paused: "⏸ paused (still recording)"
   waiting: "sampling…"
 
 formats:

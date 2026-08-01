@@ -1,6 +1,12 @@
 # 008 — TUI pause/play without losing samples
 
-Status: open
+Status: done (2026-08-01)
+
+Implemented as specced below: `p`/`P`/`<space>` toggle (spec-defined),
+rendering-only pause with a colored `⏸ paused (still recording)` marker in
+the title line, immediate fast-forward render on toggle. Verified in a pty:
+zero render output while paused, no sample gap in the summary, and a CPU
+peak recorded mid-pause.
 
 ## Motivation
 

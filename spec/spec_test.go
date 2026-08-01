@@ -49,16 +49,32 @@ func TestSpecSchemaExists(t *testing.T) {
 
 func TestSpecKeysResolve(t *testing.T) {
 	cfg := load(t)
-	if len(cfg.Keys.Quit) == 0 {
-		t.Fatal("keys.quit must not be empty")
-	}
-	for _, k := range cfg.Keys.Quit {
-		r := ResolveKey(k)
-		if r == "" {
-			t.Errorf("key %q resolves to empty sequence", k)
+	keySets := map[string][]string{"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause}
+	for name, keys := range keySets {
+		if len(keys) == 0 {
+			t.Fatalf("keys.%s must not be empty", name)
 		}
-		if strings.HasPrefix(k, "<") && r == k {
-			t.Errorf("named alias %q is not resolved", k)
+		for _, k := range keys {
+			r := ResolveKey(k)
+			if r == "" {
+				t.Errorf("keys.%s: %q resolves to empty sequence", name, k)
+			}
+			if strings.HasPrefix(k, "<") && r == k {
+				t.Errorf("keys.%s: named alias %q is not resolved", name, k)
+			}
+		}
+	}
+}
+
+func TestSpecKeysNoOverlap(t *testing.T) {
+	cfg := load(t)
+	quit := make(map[string]bool)
+	for _, k := range cfg.Keys.Quit {
+		quit[ResolveKey(k)] = true
+	}
+	for _, k := range cfg.Keys.Pause {
+		if quit[ResolveKey(k)] {
+			t.Errorf("key %q bound to both quit and pause", k)
 		}
 	}
 }
@@ -77,7 +93,7 @@ func TestSpecLabels(t *testing.T) {
 	cfg := load(t)
 	// Labels the Go code looks up; each must exist and be non-empty.
 	for _, key := range []string{"cpu", "mem", "procs", "min", "max", "avg",
-		"elapsed", "interval", "hint_quit", "waiting"} {
+		"elapsed", "interval", "hint_quit", "hint_pause", "paused", "waiting"} {
 		if cfg.Labels[key] == "" {
 			t.Errorf("label %q missing or empty", key)
 		}

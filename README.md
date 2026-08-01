@@ -16,7 +16,9 @@ proctop -o usage.log -s summary.json firefox   # export samples + summary
 ## Modes
 
 - **TUI** (default on a terminal): current CPU/MEM, running min/max with
-  timestamps, and block-character history graphs. Quit with `q` — the exit
+  timestamps, and block-character history graphs. `p` (or space) pauses
+  the display to inspect a spike — sampling and export keep running, so
+  resuming fast-forwards with no data gap. Quit with `q` — the exit
   summary is printed to the normal screen.
 - **Stream** (`--stream`, any `--format`, or piped stdout): one line per
   interval in `plain`, `color`, or `json` format.

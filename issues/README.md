@@ -14,5 +14,5 @@ Planned features and known gaps. One file per issue,
 | [005](005-duration-limit-and-thresholds.md) | Run duration limit and threshold alerts | open |
 | [006](006-more-metrics-io-threads.md) | More metrics: IO, threads, PSS | open |
 | [007](007-app-integration-tests.md) | Integration tests for internal/app and the TUI | open |
-| [008](008-tui-pause-play.md) | TUI pause/play without losing samples | open |
-| [009](009-pause-annotations-screenshot.md) | Annotations + screenshot in pause mode | open — depends on 008 |
+| [008](008-tui-pause-play.md) | TUI pause/play without losing samples | done |
+| [009](009-pause-annotations-screenshot.md) | Annotations + screenshot in pause mode | open (008 done — unblocked) |

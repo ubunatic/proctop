@@ -54,6 +54,10 @@ func Run(cfg *spec.Config, interval time.Duration, rec *sampler.Recorder, meta M
 	for _, k := range cfg.Keys.Quit {
 		quitKeys[spec.ResolveKey(k)] = true
 	}
+	pauseKeys := make(map[string]bool, len(cfg.Keys.Pause))
+	for _, k := range cfg.Keys.Pause {
+		pauseKeys[spec.ResolveKey(k)] = true
+	}
 
 	input := make(chan string)
 	go func() {
@@ -72,13 +76,19 @@ func Run(cfg *spec.Config, interval time.Duration, rec *sampler.Recorder, meta M
 	defer ticker.Stop()
 
 	var last sampler.Sample
-	var have bool
-	render(out, cfg, titleTpl, rec, meta, interval, last, have)
+	var have, paused bool
+	render(out, cfg, titleTpl, rec, meta, interval, last, have, paused)
 	for {
 		select {
 		case key, open := <-input:
 			if !open || key == "\x03" || quitKeys[key] { // \x03: last-resort Ctrl-C quit
 				return nil
+			}
+			if pauseKeys[key] {
+				// Pause freezes rendering only; sampling and export continue,
+				// so toggling back fast-forwards the display with no data gap.
+				paused = !paused
+				render(out, cfg, titleTpl, rec, meta, interval, last, have, paused)
 			}
 		case <-ticker.C:
 			s, ok, err := tick()
@@ -91,7 +101,9 @@ func Run(cfg *spec.Config, interval time.Duration, rec *sampler.Recorder, meta M
 					onSample(s)
 				}
 			}
-			render(out, cfg, titleTpl, rec, meta, interval, last, have)
+			if !paused {
+				render(out, cfg, titleTpl, rec, meta, interval, last, have, paused)
+			}
 		}
 	}
 }
@@ -99,7 +111,7 @@ func Run(cfg *spec.Config, interval time.Duration, rec *sampler.Recorder, meta M
 // render paints one full frame. Lines end with clear-to-EOL and the frame
 // ends with clear-to-end so stale content never lingers.
 func render(out *os.File, cfg *spec.Config, titleTpl *template.Template,
-	rec *sampler.Recorder, meta Meta, interval time.Duration, last sampler.Sample, have bool) {
+	rec *sampler.Recorder, meta Meta, interval time.Duration, last sampler.Sample, have, paused bool) {
 
 	cols, rows := 80, 24
 	if c, r, err := term.GetSize(int(out.Fd())); err == nil && c > 0 && r > 0 {
@@ -127,6 +139,9 @@ func render(out *os.File, cfg *spec.Config, titleTpl *template.Template,
 		elapsed = format.Elapsed(rec.End.Sub(rec.Start))
 	}
 	right := fmt.Sprintf("%s %s · %s %s", l["interval"], interval, l["elapsed"], elapsed)
+	if paused {
+		right = l["paused"] + " · " + right
+	}
 
 	var b strings.Builder
 	b.WriteString("\x1b[H")
@@ -135,8 +150,12 @@ func render(out *os.File, cfg *spec.Config, titleTpl *template.Template,
 		b.WriteString("\x1b[K\r\n")
 	}
 
+	rightColor := dim
+	if paused {
+		rightColor = format.Fg(cfg.Theme["max"])
+	}
 	line(fmt.Sprintf("%s%s%s%s%s%s", format.Fg(cfg.Theme["title"]), title.String(), off,
-		pad(cols-visibleWidth(title.String())-visibleWidth(right)), dim+right, off))
+		pad(cols-visibleWidth(title.String())-visibleWidth(right)), rightColor+right, off))
 	line("")
 
 	cpu, mem := historyValues(rec.History)
@@ -155,7 +174,7 @@ func render(out *os.File, cfg *spec.Config, titleTpl *template.Template,
 		}
 	}
 	line("")
-	b.WriteString(lbl + l["hint_quit"] + off + "\x1b[K\x1b[J")
+	b.WriteString(lbl + l["hint_quit"] + "  " + l["hint_pause"] + off + "\x1b[K\x1b[J")
 	fmt.Fprint(out, b.String())
 }
 

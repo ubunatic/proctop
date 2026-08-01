@@ -32,7 +32,8 @@ type Config struct {
 		Format      string `yaml:"format"`
 	} `yaml:"defaults"`
 	Keys struct {
-		Quit []string `yaml:"quit"`
+		Quit  []string `yaml:"quit"`
+		Pause []string `yaml:"pause"`
 	} `yaml:"keys"`
 	Theme map[string]uint8 `yaml:"theme"`
 	Graph struct {
