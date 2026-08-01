@@ -59,6 +59,31 @@ func TestRecordCPUAndPeaks(t *testing.T) {
 	}
 }
 
+func TestAnnotations(t *testing.T) {
+	r := New(100, 10)
+	t0 := time.Unix(1000, 0)
+	for i := 0; i <= 3; i++ {
+		r.Record(t0.Add(time.Duration(i)*time.Second),
+			[]proc.Stat{{PID: 1, Ticks: uint64(i * 10), RSS: int64(100 * (i + 1))}})
+	}
+	// Reversed span is normalized; Covers is inclusive.
+	r.Annotate(Annotation{Start: t0.Add(3 * time.Second), End: t0.Add(time.Second), Note: "n"})
+	a := r.Annotations[0]
+	if !a.Start.Before(a.End) {
+		t.Errorf("span not normalized: %v..%v", a.Start, a.End)
+	}
+	if !a.Covers(t0.Add(2*time.Second)) || a.Covers(t0) {
+		t.Error("Covers must include span samples and exclude outside ones")
+	}
+	cpu, rss, ok := r.SpanMax(a.Start, a.End)
+	if !ok || cpu != 10 || rss != 400 {
+		t.Errorf("SpanMax = %v/%v/%v, want 10/400/true", cpu, rss, ok)
+	}
+	if _, _, ok := r.SpanMax(t0.Add(-time.Hour), t0.Add(-time.Hour)); ok {
+		t.Error("SpanMax outside history must report ok=false")
+	}
+}
+
 func TestHistoryBound(t *testing.T) {
 	r := New(100, 3)
 	t0 := time.Unix(1000, 0)

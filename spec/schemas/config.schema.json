@@ -28,17 +28,21 @@
     "keys": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["quit", "pause", "screenshot"],
+      "required": ["quit", "pause", "screenshot", "cursor_left", "cursor_right", "mark", "annotate"],
       "properties": {
         "quit": { "$ref": "#/definitions/keyList" },
         "pause": { "$ref": "#/definitions/keyList" },
-        "screenshot": { "$ref": "#/definitions/keyList" }
+        "screenshot": { "$ref": "#/definitions/keyList" },
+        "cursor_left": { "$ref": "#/definitions/keyList" },
+        "cursor_right": { "$ref": "#/definitions/keyList" },
+        "mark": { "$ref": "#/definitions/keyList" },
+        "annotate": { "$ref": "#/definitions/keyList" }
       }
     },
     "theme": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cpu", "mem", "label", "dim", "max", "min", "title"],
+      "required": ["cpu", "mem", "label", "dim", "max", "min", "title", "cursor", "select", "annot"],
       "properties": {
         "cpu": { "$ref": "#/definitions/color256" },
         "mem": { "$ref": "#/definitions/color256" },
@@ -46,7 +50,10 @@
         "dim": { "$ref": "#/definitions/color256" },
         "max": { "$ref": "#/definitions/color256" },
         "min": { "$ref": "#/definitions/color256" },
-        "title": { "$ref": "#/definitions/color256" }
+        "title": { "$ref": "#/definitions/color256" },
+        "cursor": { "$ref": "#/definitions/color256" },
+        "select": { "$ref": "#/definitions/color256" },
+        "annot": { "$ref": "#/definitions/color256" }
       }
     },
     "graph": {
@@ -60,7 +67,7 @@
     "labels": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cpu", "mem", "procs", "min", "max", "avg", "elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot", "paused", "saved", "waiting"],
+      "required": ["cpu", "mem", "procs", "min", "max", "avg", "elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot", "hint_annotate", "hint_note", "note_prompt", "paused", "saved", "waiting"],
       "properties": {
         "cpu": { "type": "string" },
         "mem": { "type": "string" },
@@ -73,6 +80,9 @@
         "hint_quit": { "type": "string" },
         "hint_pause": { "type": "string" },
         "hint_screenshot": { "type": "string" },
+        "hint_annotate": { "type": "string" },
+        "hint_note": { "type": "string" },
+        "note_prompt": { "type": "string" },
         "paused": { "type": "string" },
         "saved": { "type": "string" },
         "waiting": { "type": "string" }
@@ -81,11 +91,13 @@
     "formats": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plain", "color", "time"],
+      "required": ["plain", "color", "time", "cursor", "annotation"],
       "properties": {
         "plain": { "type": "string", "description": "Go text/template; fields: .Time .CPU .Mem .Procs" },
         "color": { "type": "string", "description": "Like plain; extra funcs: fg <token>, off" },
-        "time": { "type": "string", "description": "Go time layout for .Time" }
+        "time": { "type": "string", "description": "Go time layout for .Time" },
+        "cursor": { "type": "string", "description": "TUI cursor info line; fields: .Time .CPU .Mem" },
+        "annotation": { "type": "string", "description": "TUI annotation line; fields: .Time .Span .CPU .Mem .Note" }
       }
     },
     "screenshot": {

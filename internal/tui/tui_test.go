@@ -4,7 +4,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"text/template"
 	"time"
 
 	"codeberg.org/ubunatic/proctop/internal/proc"
@@ -74,28 +73,38 @@ func TestStripANSI(t *testing.T) {
 	}
 }
 
-// testView builds a view with two recorded samples for frame tests.
+// testView builds a view with several recorded samples for frame tests.
 func testView(t *testing.T) *view {
 	t.Helper()
 	cfg, err := spec.Load()
 	if err != nil {
 		t.Fatalf("spec: %v", err)
 	}
-	titleTpl, err := template.New("title").Parse(cfg.App.Title)
-	if err != nil {
-		t.Fatalf("title template: %v", err)
-	}
 	rec := sampler.New(100, 50)
 	t0 := time.Unix(1000, 0)
-	rec.Record(t0, []proc.Stat{{PID: 1, Ticks: 0, RSS: 1 << 20}})
-	last, ok := rec.Record(t0.Add(time.Second), []proc.Stat{{PID: 1, Ticks: 50, RSS: 2 << 20}})
-	if !ok {
-		t.Fatal("second record must produce a sample")
+	var last sampler.Sample
+	for i := 0; i <= 4; i++ {
+		s, ok := rec.Record(t0.Add(time.Duration(i)*time.Second),
+			[]proc.Stat{{PID: 1, Ticks: uint64(i * 50), RSS: int64(i+1) << 20}})
+		if ok {
+			last = s
+		}
 	}
-	return &view{
-		cfg: cfg, titleTpl: titleTpl, rec: rec,
-		meta:     Meta{Target: "firefox", RootPID: 42},
-		interval: time.Second, last: last, have: true,
+	v, err := newView(cfg, rec, Meta{Target: "firefox", RootPID: 42}, time.Second)
+	if err != nil {
+		t.Fatalf("newView: %v", err)
+	}
+	v.last, v.have = last, true
+	return v
+}
+
+// press feeds resolved spec keys through handleKey.
+func press(t *testing.T, v *view, keys ...string) {
+	t.Helper()
+	for _, k := range keys {
+		if quit, _ := v.handleKey(spec.ResolveKey(k)); quit {
+			t.Fatalf("key %q unexpectedly quit", k)
+		}
 	}
 }
 
@@ -103,7 +112,7 @@ func TestFrameContent(t *testing.T) {
 	v := testView(t)
 	lines := v.frame(90, 24)
 	joined := stripANSI(strings.Join(lines, "\n"))
-	for _, want := range []string{"firefox", "42", "CPU", "MEM", "50.0%", "2.0MiB", "[q]", "[p]"} {
+	for _, want := range []string{"firefox", "42", "CPU", "MEM", "50.0%", "5.0MiB", "[q]", "[p]"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("frame missing %q in:\n%s", want, joined)
 		}
@@ -120,13 +129,79 @@ func TestFrameContent(t *testing.T) {
 
 func TestFramePaused(t *testing.T) {
 	v := testView(t)
-	v.paused = true
+	press(t, v, "p")
 	v.notice = "NOTE-XYZ"
 	joined := stripANSI(strings.Join(v.frame(90, 24), "\n"))
-	for _, want := range []string{v.cfg.Labels["paused"], "[s]", "NOTE-XYZ"} {
+	for _, want := range []string{v.cfg.Labels["paused"], "[s]", "[v]", "NOTE-XYZ"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("paused frame missing %q", want)
 		}
+	}
+	if len(v.frozen) != len(v.rec.History) {
+		t.Errorf("pause must snapshot history: %d != %d", len(v.frozen), len(v.rec.History))
+	}
+	if v.cursor != len(v.frozen)-1 {
+		t.Errorf("cursor = %d, want last index %d", v.cursor, len(v.frozen)-1)
+	}
+}
+
+func TestAnnotateFlow(t *testing.T) {
+	v := testView(t)
+	press(t, v, "p")                // pause: snapshot + cursor at last sample
+	press(t, v, "<left>", "<left>") // move cursor two samples back
+	press(t, v, "v")                // set range anchor
+	press(t, v, "<left>")           // extend range one more sample
+	press(t, v, "a")                // open note input
+	if !v.typing {
+		t.Fatal("annotate key must enter typing mode")
+	}
+	press(t, v, "q")     // typed chars go to the note, not quit
+	v.handleKey("spike") // pasted chunk
+	v.handleKey("\x7f")  // backspace: "qspike" → "qspik"
+	v.handleKey("\x0d")  // enter commits
+	if v.typing {
+		t.Fatal("enter must leave typing mode")
+	}
+	if len(v.rec.Annotations) != 1 {
+		t.Fatalf("got %d annotations, want 1", len(v.rec.Annotations))
+	}
+	a := v.rec.Annotations[0]
+	if a.Note != "qspik" {
+		t.Errorf("note = %q, want %q", a.Note, "qspik")
+	}
+	if !a.End.After(a.Start) {
+		t.Errorf("range annotation must span time: %v..%v", a.Start, a.End)
+	}
+	// cursor: last(3) → left,left → 1 = mark anchor → left → 0; span = samples 0..1
+	if hist := v.frozen; !a.Start.Equal(hist[0].Time) || !a.End.Equal(hist[1].Time) {
+		t.Errorf("span %v..%v, want sample times %v..%v", a.Start, a.End, hist[0].Time, hist[1].Time)
+	}
+
+	// The annotation is pegged to timestamps: it renders in the frame list
+	// and highlights columns, also after resume.
+	press(t, v, "p") // resume
+	joined := strings.Join(v.frame(90, 24), "\n")
+	if !strings.Contains(stripANSI(joined), "qspik") {
+		t.Error("annotation note missing from frame after resume")
+	}
+	if !strings.Contains(joined, "\x1b[48;5;") {
+		t.Error("annotated columns must carry a background highlight")
+	}
+}
+
+func TestAnnotateEscCancels(t *testing.T) {
+	v := testView(t)
+	press(t, v, "p", "a")
+	v.handleKey("x")
+	v.handleKey("\x1b") // esc cancels the note, does not quit
+	if v.typing {
+		t.Fatal("esc must leave typing mode")
+	}
+	if len(v.rec.Annotations) != 0 {
+		t.Fatal("cancelled note must not create an annotation")
+	}
+	if quit, _ := v.handleKey("\x1b"); !quit {
+		t.Fatal("esc outside typing must quit")
 	}
 }
 

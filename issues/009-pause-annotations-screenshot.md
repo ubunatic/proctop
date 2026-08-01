@@ -1,6 +1,19 @@
 # 009 — Annotations + screenshot in pause mode
 
-Status: in progress — screenshot done (2026-08-01), annotations open
+Status: done (2026-08-01)
+
+Annotations half implemented: in pause mode `←/→` (or `h/l`) move a column
+cursor (with a `▶ time cpu mem` info line), `v` marks a range anchor, `a`
+opens a single-line note — Enter saves, Esc cancels (structural keys;
+Ctrl-C still quits). Annotations are **pegged to sample timestamps**, never
+column indexes: highlights travel with the graph after resume and scroll
+off naturally while the note list (`● time–end cpu mem — note`, with span
+maxima as values) and the summary JSON (`annotations: [{time, span,
+note}]`) keep them. Pause snapshots the history so cursor targets stay
+stable while sampling continues underneath. Cursor/selection/annotation
+column highlights are spec-themed background colors; screenshots include
+highlights and note list. Covered by handleKey-level unit tests and a
+live pty run.
 
 Screenshot half implemented: `s`/`S` in pause mode saves the current frame
 (minus the hint line) as `.txt` (colors stripped) **and** `.ansi` (raw,

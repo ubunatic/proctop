@@ -15,4 +15,4 @@ Planned features and known gaps. One file per issue,
 | [006](006-more-metrics-io-threads.md) | More metrics: IO, threads, PSS | open |
 | [007](007-app-integration-tests.md) | Integration tests for internal/app and the TUI | open |
 | [008](008-tui-pause-play.md) | TUI pause/play without losing samples | done |
-| [009](009-pause-annotations-screenshot.md) | Annotations + screenshot in pause mode | in progress — screenshot done, annotations open |
+| [009](009-pause-annotations-screenshot.md) | Annotations + screenshot in pause mode | done |

@@ -58,6 +58,9 @@ func Funcs(cfg *spec.Config) template.FuncMap {
 // Fg returns the ANSI 256-color foreground sequence for palette index n.
 func Fg(n uint8) string { return fmt.Sprintf("\x1b[38;5;%dm", n) }
 
+// Bg returns the ANSI 256-color background sequence for palette index n.
+func Bg(n uint8) string { return fmt.Sprintf("\x1b[48;5;%dm", n) }
+
 // Off is the ANSI reset sequence.
 const Off = "\x1b[0m"
 
@@ -111,19 +114,27 @@ type summaryData struct {
 
 // jsonSummary is the machine-readable summary record.
 type jsonSummary struct {
-	Target      string    `json:"target"`
-	RootPID     int       `json:"root_pid"`
-	Start       time.Time `json:"start"`
-	End         time.Time `json:"end"`
-	Samples     int       `json:"samples"`
-	CPUMaxPct   float64   `json:"cpu_max_pct"`
-	CPUMaxTime  time.Time `json:"cpu_max_time"`
-	CPUMinPct   float64   `json:"cpu_min_pct"`
-	CPUAvgPct   float64   `json:"cpu_avg_pct"`
-	MemMaxBytes int64     `json:"mem_max_bytes"`
-	MemMaxTime  time.Time `json:"mem_max_time"`
-	MemMinBytes int64     `json:"mem_min_bytes"`
-	MemAvgBytes int64     `json:"mem_avg_bytes"`
+	Target      string           `json:"target"`
+	RootPID     int              `json:"root_pid"`
+	Start       time.Time        `json:"start"`
+	End         time.Time        `json:"end"`
+	Samples     int              `json:"samples"`
+	CPUMaxPct   float64          `json:"cpu_max_pct"`
+	CPUMaxTime  time.Time        `json:"cpu_max_time"`
+	CPUMinPct   float64          `json:"cpu_min_pct"`
+	CPUAvgPct   float64          `json:"cpu_avg_pct"`
+	MemMaxBytes int64            `json:"mem_max_bytes"`
+	MemMaxTime  time.Time        `json:"mem_max_time"`
+	MemMinBytes int64            `json:"mem_min_bytes"`
+	MemAvgBytes int64            `json:"mem_avg_bytes"`
+	Annotations []jsonAnnotation `json:"annotations,omitempty"`
+}
+
+// jsonAnnotation is one user note in the summary record.
+type jsonAnnotation struct {
+	Time time.Time `json:"time"`
+	Span string    `json:"span"`
+	Note string    `json:"note"`
 }
 
 // SummaryText renders the human-readable exit summary from the spec template.
@@ -155,6 +166,14 @@ func SummaryText(cfg *spec.Config, target string, rootPID int, r *sampler.Record
 
 // SummaryJSON renders the summary as a single JSON line.
 func SummaryJSON(target string, rootPID int, r *sampler.Recorder) (string, error) {
+	var annots []jsonAnnotation
+	for _, a := range r.Annotations {
+		annots = append(annots, jsonAnnotation{
+			Time: a.Start,
+			Span: a.End.Sub(a.Start).String(),
+			Note: a.Note,
+		})
+	}
 	b, err := json.Marshal(jsonSummary{
 		Target:      target,
 		RootPID:     rootPID,
@@ -169,6 +188,7 @@ func SummaryJSON(target string, rootPID int, r *sampler.Recorder) (string, error
 		MemMaxTime:  r.MemMax.Time,
 		MemMinBytes: int64(r.MemMin.Value),
 		MemAvgBytes: int64(r.MemAvg()),
+		Annotations: annots,
 	})
 	return string(b), err
 }

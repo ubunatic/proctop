@@ -49,9 +49,7 @@ func TestSpecSchemaExists(t *testing.T) {
 
 func TestSpecKeysResolve(t *testing.T) {
 	cfg := load(t)
-	keySets := map[string][]string{
-		"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause, "screenshot": cfg.Keys.Screenshot,
-	}
+	keySets := allKeySets(cfg)
 	for name, keys := range keySets {
 		if len(keys) == 0 {
 			t.Fatalf("keys.%s must not be empty", name)
@@ -68,12 +66,20 @@ func TestSpecKeysResolve(t *testing.T) {
 	}
 }
 
+// allKeySets lists every key group the Go code binds; keep in sync with
+// the keymaps built in internal/tui.
+func allKeySets(cfg *Config) map[string][]string {
+	return map[string][]string{
+		"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause, "screenshot": cfg.Keys.Screenshot,
+		"cursor_left": cfg.Keys.CursorLeft, "cursor_right": cfg.Keys.CursorRight,
+		"mark": cfg.Keys.Mark, "annotate": cfg.Keys.Annotate,
+	}
+}
+
 func TestSpecKeysNoOverlap(t *testing.T) {
 	cfg := load(t)
 	owner := make(map[string]string)
-	for name, keys := range map[string][]string{
-		"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause, "screenshot": cfg.Keys.Screenshot,
-	} {
+	for name, keys := range allKeySets(cfg) {
 		for _, k := range keys {
 			r := ResolveKey(k)
 			if prev, taken := owner[r]; taken {
@@ -105,7 +111,8 @@ func TestSpecScreenshot(t *testing.T) {
 func TestSpecThemeTokens(t *testing.T) {
 	cfg := load(t)
 	// Tokens the Go code looks up; each must exist in the spec theme.
-	for _, tok := range []string{"cpu", "mem", "label", "dim", "max", "min", "title"} {
+	for _, tok := range []string{"cpu", "mem", "label", "dim", "max", "min", "title",
+		"cursor", "select", "annot"} {
 		if _, ok := cfg.Theme[tok]; !ok {
 			t.Errorf("theme token %q missing", tok)
 		}
@@ -117,7 +124,7 @@ func TestSpecLabels(t *testing.T) {
 	// Labels the Go code looks up; each must exist and be non-empty.
 	for _, key := range []string{"cpu", "mem", "procs", "min", "max", "avg",
 		"elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot",
-		"paused", "saved", "waiting"} {
+		"hint_annotate", "hint_note", "note_prompt", "paused", "saved", "waiting"} {
 		if cfg.Labels[key] == "" {
 			t.Errorf("label %q missing or empty", key)
 		}
@@ -138,10 +145,12 @@ func TestSpecTemplatesParse(t *testing.T) {
 		"off": func() string { return "" },
 	}
 	for name, text := range map[string]string{
-		"title":   cfg.App.Title,
-		"plain":   cfg.Formats.Plain,
-		"color":   cfg.Formats.Color,
-		"summary": cfg.Summary.Text,
+		"title":      cfg.App.Title,
+		"plain":      cfg.Formats.Plain,
+		"color":      cfg.Formats.Color,
+		"cursor":     cfg.Formats.Cursor,
+		"annotation": cfg.Formats.Annotation,
+		"summary":    cfg.Summary.Text,
 	} {
 		if _, err := template.New(name).Funcs(stub).Parse(text); err != nil {
 			t.Errorf("template %s does not parse: %v", name, err)

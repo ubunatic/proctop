@@ -23,6 +23,20 @@ type Extreme struct {
 	Time  time.Time
 }
 
+// Annotation is a user note attached to a span of samples. It is keyed by
+// sample timestamps (never by graph column), so it stays correct while the
+// history scrolls on; Start == End marks a single sample.
+type Annotation struct {
+	Start time.Time
+	End   time.Time
+	Note  string
+}
+
+// Covers reports whether t lies within the annotation span (inclusive).
+func (a Annotation) Covers(t time.Time) bool {
+	return !t.Before(a.Start) && !t.After(a.End)
+}
+
 // Recorder computes CPU%% from tick deltas between successive Record calls
 // and maintains a bounded history plus running min/max/avg statistics.
 type Recorder struct {
@@ -35,6 +49,7 @@ type Recorder struct {
 	MemMax, MemMin Extreme
 	Start, End     time.Time
 	Samples        int
+	Annotations    []Annotation
 
 	cpuSum float64
 	memSum float64
@@ -118,6 +133,28 @@ func (r *Recorder) CPUAvg() float64 {
 		return 0
 	}
 	return r.cpuSum / float64(r.Samples)
+}
+
+// Annotate attaches a note to a sample span.
+func (r *Recorder) Annotate(a Annotation) {
+	if a.End.Before(a.Start) {
+		a.Start, a.End = a.End, a.Start
+	}
+	r.Annotations = append(r.Annotations, a)
+}
+
+// SpanMax returns the maximum CPU%% and RSS among history samples within
+// [start, end]; ok is false when no sample of the span is still in history.
+func (r *Recorder) SpanMax(start, end time.Time) (cpu, rss float64, ok bool) {
+	for _, s := range r.History {
+		if s.Time.Before(start) || s.Time.After(end) {
+			continue
+		}
+		ok = true
+		cpu = max(cpu, s.CPUPct)
+		rss = max(rss, float64(s.RSS))
+	}
+	return cpu, rss, ok
 }
 
 // MemAvg returns the mean RSS in bytes over all recorded samples.

@@ -88,6 +88,7 @@ func TestSummary(t *testing.T) {
 		}
 	}
 
+	r.Annotate(sampler.Annotation{Start: t0, End: t0.Add(time.Second), Note: "spike"})
 	js, err := SummaryJSON("firefox", 100, r)
 	if err != nil {
 		t.Fatalf("SummaryJSON: %v", err)
@@ -98,6 +99,14 @@ func TestSummary(t *testing.T) {
 	}
 	if v["cpu_max_pct"] != 50.0 {
 		t.Errorf("cpu_max_pct = %v, want 50", v["cpu_max_pct"])
+	}
+	annots, ok := v["annotations"].([]any)
+	if !ok || len(annots) != 1 {
+		t.Fatalf("annotations = %v, want one entry", v["annotations"])
+	}
+	a := annots[0].(map[string]any)
+	if a["note"] != "spike" || a["span"] != "1s" {
+		t.Errorf("annotation = %v, want note=spike span=1s", a)
 	}
 }
 

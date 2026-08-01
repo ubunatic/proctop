@@ -32,9 +32,13 @@ type Config struct {
 		Format      string `yaml:"format"`
 	} `yaml:"defaults"`
 	Keys struct {
-		Quit       []string `yaml:"quit"`
-		Pause      []string `yaml:"pause"`
-		Screenshot []string `yaml:"screenshot"`
+		Quit        []string `yaml:"quit"`
+		Pause       []string `yaml:"pause"`
+		Screenshot  []string `yaml:"screenshot"`
+		CursorLeft  []string `yaml:"cursor_left"`
+		CursorRight []string `yaml:"cursor_right"`
+		Mark        []string `yaml:"mark"`
+		Annotate    []string `yaml:"annotate"`
 	} `yaml:"keys"`
 	Theme map[string]uint8 `yaml:"theme"`
 	Graph struct {
@@ -42,9 +46,11 @@ type Config struct {
 	} `yaml:"graph"`
 	Labels  map[string]string `yaml:"labels"`
 	Formats struct {
-		Plain string `yaml:"plain"`
-		Color string `yaml:"color"`
-		Time  string `yaml:"time"`
+		Plain      string `yaml:"plain"`
+		Color      string `yaml:"color"`
+		Time       string `yaml:"time"`
+		Cursor     string `yaml:"cursor"`
+		Annotation string `yaml:"annotation"`
 	} `yaml:"formats"`
 	Screenshot struct {
 		Name    string   `yaml:"name"`
@@ -86,6 +92,14 @@ func ResolveKey(name string) string {
 		return " "
 	case "<bs>":
 		return "\x7f"
+	case "<up>":
+		return "\x1b[A"
+	case "<down>":
+		return "\x1b[B"
+	case "<right>":
+		return "\x1b[C"
+	case "<left>":
+		return "\x1b[D"
 	}
 	return name
 }

@@ -18,10 +18,14 @@ proctop -o usage.log -s summary.json firefox   # export samples + summary
 - **TUI** (default on a terminal): current CPU/MEM, running min/max with
   timestamps, and block-character history graphs. `p` (or space) pauses
   the display to inspect a spike — sampling and export keep running, so
-  resuming fast-forwards with no data gap. While paused, `s` saves the
-  frame as `.txt` and `.ansi` screenshots (`proctop-<target>-<ts>.*`,
-  never overwriting). Quit with `q` — the exit summary is printed to the
-  normal screen.
+  resuming fast-forwards with no data gap. While paused: `←/→` move a
+  column cursor, `v` marks a range, `a` attaches a note (Enter saves,
+  Esc cancels) — annotations are pegged to sample timestamps, stay
+  highlighted as the graph moves on, are listed below the graphs, and
+  land in the summary JSON. `s` saves the frame as `.txt` and `.ansi`
+  screenshots (`proctop-<target>-<ts>.*`, never overwriting), including
+  annotations. Quit with `q` — the exit summary is printed to the normal
+  screen.
 - **Stream** (`--stream`, any `--format`, or piped stdout): one line per
   interval in `plain`, `color`, or `json` format.
 

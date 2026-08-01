@@ -17,8 +17,14 @@ keys:
   quit: ["q", "Q", "<c-c>", "<esc>"]
   pause: ["p", "P", "<space>"]
   screenshot: ["s", "S"]
+  # pause-mode annotation keys
+  cursor_left: ["<left>", "h"]
+  cursor_right: ["<right>", "l"]
+  mark: ["v"]
+  annotate: ["a"]
 
 # 256-color ANSI palette indices per semantic token.
+# cursor/select/annot are background colors for graph column highlights.
 theme:
   cpu: 214
   mem: 39
@@ -27,6 +33,9 @@ theme:
   max: 203
   min: 78
   title: 255
+  cursor: 252
+  select: 240
+  annot: 24
 
 graph:
   levels: " ▁▂▃▄▅▆▇█"
@@ -43,6 +52,9 @@ labels:
   hint_quit: "[q] quit"
   hint_pause: "[p] pause/play"
   hint_screenshot: "[s] screenshot"
+  hint_annotate: "[←→] move  [v] mark  [a] note"
+  hint_note: "[enter] save · [esc] cancel"
+  note_prompt: "note:"
   paused: "⏸ paused (still recording)"
   saved: "📷 saved"
   waiting: "sampling…"
@@ -53,6 +65,9 @@ formats:
   plain: "{{.Time}} cpu={{.CPU}}% mem={{.Mem}} procs={{.Procs}}"
   color: '{{fg "dim"}}{{.Time}}{{off}} cpu={{fg "cpu"}}{{.CPU}}%{{off}} mem={{fg "mem"}}{{.Mem}}{{off}} procs={{.Procs}}'
   time: "2006-01-02T15:04:05"
+  # TUI pause-mode lines; fields: .Time .Span .CPU .Mem (.Note for annotation)
+  cursor: "▶ {{.Time}} cpu {{.CPU}}% mem {{.Mem}}"
+  annotation: "● {{.Time}}{{.Span}} cpu {{.CPU}}% mem {{.Mem}} — {{.Note}}"
 
 screenshot:
   # Filename template (no extension); fields: .Target .Time
