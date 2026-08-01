@@ -74,8 +74,8 @@ func TestStripANSI(t *testing.T) {
 	}
 }
 
-// testView builds a view with several recorded samples for frame tests.
-func testView(t *testing.T) *view {
+// viewWith builds a view fed with records samples for frame tests.
+func viewWith(t *testing.T, records int) *view {
 	t.Helper()
 	cfg, err := spec.Load()
 	if err != nil {
@@ -84,7 +84,7 @@ func testView(t *testing.T) *view {
 	rec := sampler.New(100, 50)
 	t0 := time.Unix(1000, 0)
 	var last sampler.Sample
-	for i := 0; i <= 4; i++ {
+	for i := 0; i < records; i++ {
 		s, ok := rec.Record(t0.Add(time.Duration(i)*time.Second),
 			[]proc.Stat{{PID: 1, Ticks: uint64(i * 50), RSS: int64(i+1) << 20}})
 		if ok {
@@ -97,6 +97,11 @@ func testView(t *testing.T) *view {
 	}
 	v.last, v.have = last, true
 	return v
+}
+
+// testView builds a view with several recorded samples for frame tests.
+func testView(t *testing.T) *view {
+	return viewWith(t, 5)
 }
 
 // press feeds resolved spec keys through handleKey.
@@ -143,6 +148,164 @@ func TestFramePaused(t *testing.T) {
 	}
 	if v.cursor != len(v.frozen)-1 {
 		t.Errorf("cursor = %d, want last index %d", v.cursor, len(v.frozen)-1)
+	}
+}
+
+// scrollView builds a view whose history exceeds one screen: 30 samples,
+// 10 visible graph columns (a frame render fixes the width used by keys).
+func scrollView(t *testing.T) *view {
+	t.Helper()
+	v := viewWith(t, 31) // first record primes, 30 land in history
+	v.frame(12, 24)      // width = cols-2 = 10
+	if v.gwidth != 10 || len(v.rec.History) != 30 {
+		t.Fatalf("setup: gwidth=%d hist=%d, want 10/30", v.gwidth, len(v.rec.History))
+	}
+	return v
+}
+
+func TestPlayModeScroll(t *testing.T) {
+	v := scrollView(t)
+	joined := stripANSI(strings.Join(v.frame(12, 24), "\n"))
+	if !strings.Contains(joined, v.cfg.Labels["hint_scroll"]) {
+		t.Error("play-mode hints must include the scroll hint")
+	}
+
+	press(t, v, "<left>", "<left>", "<left>")
+	if v.scroll != 3 {
+		t.Fatalf("scroll = %d, want 3", v.scroll)
+	}
+	joined = stripANSI(strings.Join(v.frame(12, 24), "\n"))
+	if !strings.Contains(joined, v.cfg.Labels["scrolled"]) || !strings.Contains(joined, "-0:03") {
+		t.Errorf("scrolled frame must show the history marker with lag, got:\n%s", joined)
+	}
+
+	// A new live sample keeps the view anchored to the samples it shows.
+	s, _ := v.rec.Record(time.Unix(1031, 0), []proc.Stat{{PID: 1, Ticks: 5000, RSS: 1 << 20}})
+	v.advance(s)
+	if v.scroll != 4 {
+		t.Errorf("scroll after new sample = %d, want 4 (anchored)", v.scroll)
+	}
+
+	// Scrolling right returns to the live edge; the marker disappears.
+	press(t, v, "<right>", "<right>", "<right>", "<right>")
+	if v.scroll != 0 {
+		t.Fatalf("scroll = %d, want 0 after scrolling right", v.scroll)
+	}
+	joined = stripANSI(strings.Join(v.frame(12, 24), "\n"))
+	if strings.Contains(joined, v.cfg.Labels["scrolled"]) {
+		t.Error("live view must not show the history marker")
+	}
+	press(t, v, "<right>")
+	if v.scroll != 0 {
+		t.Error("scrolling right at the live edge must stay live")
+	}
+}
+
+func TestPlayModeScrollClamps(t *testing.T) {
+	v := scrollView(t)
+	for range 100 {
+		press(t, v, "<left>")
+	}
+	if want := len(v.rec.History) - v.gwidth; v.scroll != want {
+		t.Errorf("scroll = %d, want clamp at %d (oldest full screen)", v.scroll, want)
+	}
+}
+
+func TestPauseWhileScrolled(t *testing.T) {
+	v := scrollView(t)
+	press(t, v, "<left>", "<left>") // pan back in play mode
+	press(t, v, "p")
+	if v.scroll != 2 {
+		t.Errorf("pause must keep the scrolled position, scroll = %d", v.scroll)
+	}
+	if want := len(v.frozen) - 3; v.cursor != want {
+		t.Errorf("cursor = %d, want visible right edge %d", v.cursor, want)
+	}
+	press(t, v, "p") // play fast-forwards to live
+	if v.scroll != 0 {
+		t.Errorf("play must reset the scroll, got %d", v.scroll)
+	}
+}
+
+func TestPauseCursorAutoScroll(t *testing.T) {
+	v := scrollView(t)
+	press(t, v, "p")
+	for range 25 {
+		press(t, v, "<left>")
+	}
+	if v.cursor != 4 {
+		t.Fatalf("cursor = %d, want 4", v.cursor)
+	}
+	first := len(v.frozen) - v.scroll - v.gwidth
+	last := len(v.frozen) - 1 - v.scroll
+	if v.cursor < first || v.cursor > last {
+		t.Errorf("cursor %d outside visible window [%d,%d]", v.cursor, first, last)
+	}
+	for range 25 {
+		press(t, v, "<right>")
+	}
+	if v.cursor != len(v.frozen)-1 || v.scroll != 0 {
+		t.Errorf("cursor/scroll = %d/%d, want %d/0 (back at the live edge)",
+			v.cursor, v.scroll, len(v.frozen)-1)
+	}
+}
+
+func TestIntervalKeys(t *testing.T) {
+	v := testView(t) // interval 1s, spec bounds 100ms..60s
+	joined := stripANSI(strings.Join(v.frame(90, 24), "\n"))
+	if !strings.Contains(joined, v.cfg.Labels["hint_interval"]) {
+		t.Error("play-mode hints must include the interval hint")
+	}
+
+	press(t, v, "+")
+	if v.interval != 2*time.Second {
+		t.Errorf("interval = %v, want 2s after +", v.interval)
+	}
+	press(t, v, "-", "-")
+	if v.interval != 500*time.Millisecond {
+		t.Errorf("interval = %v, want 500ms after --", v.interval)
+	}
+
+	// The ladder ends clamp; walking past an end and back must retrace the
+	// same steps (n× - then n× + returns to the top, and vice versa).
+	for range 20 {
+		press(t, v, "-")
+	}
+	if v.interval != v.ivSteps[0] {
+		t.Errorf("interval = %v, want floor %v", v.interval, v.ivSteps[0])
+	}
+	for range 20 {
+		press(t, v, "+")
+	}
+	if last := v.ivSteps[len(v.ivSteps)-1]; v.interval != last {
+		t.Errorf("interval = %v, want ceiling %v", v.interval, last)
+	}
+	press(t, v, "-", "-", "+", "+")
+	if last := v.ivSteps[len(v.ivSteps)-1]; v.interval != last {
+		t.Errorf("interval = %v, want %v (+/- must be symmetric)", v.interval, last)
+	}
+
+	// An off-ladder --interval snaps to the next step in the pressed
+	// direction and stays on the ladder from then on.
+	v.interval = 300 * time.Millisecond
+	press(t, v, "+")
+	if v.interval != 500*time.Millisecond {
+		t.Errorf("interval = %v, want snap up to 500ms", v.interval)
+	}
+	v.interval = 300 * time.Millisecond
+	press(t, v, "-")
+	if v.interval != 200*time.Millisecond {
+		t.Errorf("interval = %v, want snap down to 200ms", v.interval)
+	}
+
+	// Works while paused too, and the title readout follows.
+	press(t, v, "p", "+")
+	if v.interval != 500*time.Millisecond {
+		t.Errorf("interval = %v, want 500ms (adjustable while paused)", v.interval)
+	}
+	joined = stripANSI(strings.Join(v.frame(90, 24), "\n"))
+	if !strings.Contains(joined, v.interval.String()) {
+		t.Errorf("title must show the new interval %v:\n%s", v.interval, joined)
 	}
 }
 

@@ -17,9 +17,15 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["interval", "history", "graph_height", "format"],
+      "required": ["interval", "interval_steps", "history", "graph_height", "format"],
       "properties": {
         "interval": { "type": "string", "description": "Go duration string, e.g. 1s" },
+        "interval_steps": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string", "description": "Go duration string" },
+          "description": "Ascending ladder of intervals walked by the interval keys"
+        },
         "history": { "type": "integer", "minimum": 10 },
         "graph_height": { "type": "integer", "minimum": 1, "maximum": 20 },
         "format": { "enum": ["plain", "color", "json"] }
@@ -28,11 +34,13 @@
     "keys": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["quit", "pause", "screenshot", "cursor_left", "cursor_right", "mark", "annotate"],
+      "required": ["quit", "pause", "screenshot", "interval_up", "interval_down", "cursor_left", "cursor_right", "mark", "annotate"],
       "properties": {
         "quit": { "$ref": "#/definitions/keyList" },
         "pause": { "$ref": "#/definitions/keyList" },
         "screenshot": { "$ref": "#/definitions/keyList" },
+        "interval_up": { "$ref": "#/definitions/keyList" },
+        "interval_down": { "$ref": "#/definitions/keyList" },
         "cursor_left": { "$ref": "#/definitions/keyList" },
         "cursor_right": { "$ref": "#/definitions/keyList" },
         "mark": { "$ref": "#/definitions/keyList" },
@@ -74,7 +82,7 @@
     "labels": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cpu", "mem", "procs", "min", "max", "avg", "elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot", "hint_annotate", "hint_note", "note_prompt", "paused", "saved", "waiting"],
+      "required": ["cpu", "mem", "procs", "min", "max", "avg", "elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot", "hint_annotate", "hint_scroll", "hint_interval", "hint_note", "note_prompt", "paused", "scrolled", "saved", "waiting"],
       "properties": {
         "cpu": { "type": "string" },
         "mem": { "type": "string" },
@@ -88,9 +96,12 @@
         "hint_pause": { "type": "string" },
         "hint_screenshot": { "type": "string" },
         "hint_annotate": { "type": "string" },
+        "hint_scroll": { "type": "string" },
+        "hint_interval": { "type": "string" },
         "hint_note": { "type": "string" },
         "note_prompt": { "type": "string" },
         "paused": { "type": "string" },
+        "scrolled": { "type": "string" },
         "saved": { "type": "string" },
         "waiting": { "type": "string" }
       }

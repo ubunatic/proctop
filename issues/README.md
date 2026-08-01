@@ -19,3 +19,5 @@ Planned features and known gaps. One file per issue,
 | [010](010-in-graph-annotation-labels.md) | In-graph annotation labels with arrows | done |
 | [011](011-frame-overflow-small-terminals.md) | Frame overflow on small terminals | open |
 | [012](012-annotation-management.md) | Manage annotations: delete, edit, persist | open |
+| [013](013-play-mode-time-scroll.md) | Scroll through time in play mode | done |
+| [014](014-live-interval-keys.md) | Adjust the sampling interval live with [+]/[-] | done |

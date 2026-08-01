@@ -26,8 +26,27 @@ func TestSpecLoad(t *testing.T) {
 	if cfg.Defaults.History < 10 || cfg.Defaults.GraphHeight < 1 {
 		t.Errorf("bad defaults: %+v", cfg.Defaults)
 	}
-	if _, err := time.ParseDuration(cfg.Defaults.Interval); err != nil {
+	iv, err := time.ParseDuration(cfg.Defaults.Interval)
+	if err != nil {
 		t.Errorf("defaults.interval: %v", err)
+	}
+	// The interval-key ladder must ascend strictly and contain the default,
+	// so [+]/[-] walk a symmetric sequence from the default interval.
+	var prev time.Duration
+	onLadder := false
+	for i, str := range cfg.Defaults.IntervalSteps {
+		step, err := time.ParseDuration(str)
+		if err != nil {
+			t.Fatalf("defaults.interval_steps[%d]: %v", i, err)
+		}
+		if step <= prev {
+			t.Errorf("defaults.interval_steps must ascend strictly: %v after %v", step, prev)
+		}
+		onLadder = onLadder || step == iv
+		prev = step
+	}
+	if !onLadder {
+		t.Errorf("defaults.interval %v must be an interval_steps step", iv)
 	}
 	switch cfg.Defaults.Format {
 	case "plain", "color", "json":
@@ -71,6 +90,7 @@ func TestSpecKeysResolve(t *testing.T) {
 func allKeySets(cfg *Config) map[string][]string {
 	return map[string][]string{
 		"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause, "screenshot": cfg.Keys.Screenshot,
+		"interval_up": cfg.Keys.IntervalUp, "interval_down": cfg.Keys.IntervalDown,
 		"cursor_left": cfg.Keys.CursorLeft, "cursor_right": cfg.Keys.CursorRight,
 		"mark": cfg.Keys.Mark, "annotate": cfg.Keys.Annotate,
 	}
@@ -124,7 +144,8 @@ func TestSpecLabels(t *testing.T) {
 	// Labels the Go code looks up; each must exist and be non-empty.
 	for _, key := range []string{"cpu", "mem", "procs", "min", "max", "avg",
 		"elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot",
-		"hint_annotate", "hint_note", "note_prompt", "paused", "saved", "waiting"} {
+		"hint_annotate", "hint_scroll", "hint_interval", "hint_note",
+		"note_prompt", "paused", "scrolled", "saved", "waiting"} {
 		if cfg.Labels[key] == "" {
 			t.Errorf("label %q missing or empty", key)
 		}

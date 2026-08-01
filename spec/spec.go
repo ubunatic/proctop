@@ -26,19 +26,22 @@ type Config struct {
 		Title string `yaml:"title"`
 	} `yaml:"app"`
 	Defaults struct {
-		Interval    string `yaml:"interval"`
-		History     int    `yaml:"history"`
-		GraphHeight int    `yaml:"graph_height"`
-		Format      string `yaml:"format"`
+		Interval      string   `yaml:"interval"`
+		IntervalSteps []string `yaml:"interval_steps"`
+		History       int      `yaml:"history"`
+		GraphHeight   int      `yaml:"graph_height"`
+		Format        string   `yaml:"format"`
 	} `yaml:"defaults"`
 	Keys struct {
-		Quit        []string `yaml:"quit"`
-		Pause       []string `yaml:"pause"`
-		Screenshot  []string `yaml:"screenshot"`
-		CursorLeft  []string `yaml:"cursor_left"`
-		CursorRight []string `yaml:"cursor_right"`
-		Mark        []string `yaml:"mark"`
-		Annotate    []string `yaml:"annotate"`
+		Quit         []string `yaml:"quit"`
+		Pause        []string `yaml:"pause"`
+		Screenshot   []string `yaml:"screenshot"`
+		IntervalUp   []string `yaml:"interval_up"`
+		IntervalDown []string `yaml:"interval_down"`
+		CursorLeft   []string `yaml:"cursor_left"`
+		CursorRight  []string `yaml:"cursor_right"`
+		Mark         []string `yaml:"mark"`
+		Annotate     []string `yaml:"annotate"`
 	} `yaml:"keys"`
 	Theme map[string]uint8 `yaml:"theme"`
 	Graph struct {

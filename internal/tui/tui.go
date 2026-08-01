@@ -33,6 +33,7 @@ type TickFunc func() (sampler.Sample, bool, error)
 type keymaps struct {
 	quit, pause, shot           map[string]bool
 	left, right, mark, annotate map[string]bool
+	ivUp, ivDown                map[string]bool
 }
 
 func newKeymaps(cfg *spec.Config) keymaps {
@@ -51,6 +52,8 @@ func newKeymaps(cfg *spec.Config) keymaps {
 		right:    set(cfg.Keys.CursorRight),
 		mark:     set(cfg.Keys.Mark),
 		annotate: set(cfg.Keys.Annotate),
+		ivUp:     set(cfg.Keys.IntervalUp),
+		ivDown:   set(cfg.Keys.IntervalDown),
 	}
 }
 
@@ -64,6 +67,7 @@ type view struct {
 	rec       *sampler.Recorder
 	meta      Meta
 	interval  time.Duration
+	ivSteps   []time.Duration // ascending interval-key ladder from the spec
 
 	last   sampler.Sample
 	have   bool
@@ -75,6 +79,8 @@ type view struct {
 	mark   int              // selection anchor index into frozen, -1 = none
 	typing bool             // note input mode
 	draft  string           // note text being typed
+	scroll int              // samples hidden right of the view, 0 = live edge
+	gwidth int              // graph width of the last frame, for scroll clamping
 }
 
 // Run drives the dashboard until a quit key is pressed, the tick function
@@ -127,9 +133,13 @@ func Run(cfg *spec.Config, interval time.Duration, rec *sampler.Recorder, meta M
 			if !open {
 				return nil
 			}
+			before := v.interval
 			quit, dirty := v.handleKey(key)
 			if quit {
 				return nil
+			}
+			if v.interval != before {
+				ticker.Reset(v.interval)
 			}
 			if dirty {
 				repaint()
@@ -140,7 +150,7 @@ func Run(cfg *spec.Config, interval time.Duration, rec *sampler.Recorder, meta M
 				return err
 			}
 			if ok {
-				v.last, v.have = s, true
+				v.advance(s)
 				if onSample != nil {
 					onSample(s)
 				}
@@ -166,11 +176,28 @@ func newView(cfg *spec.Config, rec *sampler.Recorder, meta Meta, interval time.D
 	if err != nil {
 		return nil, fmt.Errorf("tui: parse annotation template: %w", err)
 	}
+	ivSteps := make([]time.Duration, len(cfg.Defaults.IntervalSteps))
+	for i, str := range cfg.Defaults.IntervalSteps {
+		if ivSteps[i], err = time.ParseDuration(str); err != nil {
+			return nil, fmt.Errorf("tui: parse defaults.interval_steps[%d]: %w", i, err)
+		}
+	}
 	return &view{
 		cfg: cfg, titleTpl: titleTpl, cursorTpl: cursorTpl, annotTpl: annotTpl,
-		keys: newKeymaps(cfg), rec: rec, meta: meta, interval: interval,
-		cursor: -1, mark: -1,
+		keys: newKeymaps(cfg), rec: rec, meta: meta,
+		interval: interval, ivSteps: ivSteps,
+		cursor: -1, mark: -1, gwidth: 78, // matches the 80-col terminal fallback
 	}, nil
+}
+
+// advance takes a new live sample into the view state. A scrolled-back view
+// stays anchored to the samples it shows: each new sample pushes the live
+// edge one further away.
+func (v *view) advance(s sampler.Sample) {
+	v.last, v.have = s, true
+	if !v.paused && v.scroll > 0 {
+		v.scroll++
+	}
 }
 
 // handleKey processes one key chunk. quit ends the TUI; dirty requests a
@@ -205,22 +232,36 @@ func (v *view) handleKey(key string) (quit, dirty bool) {
 		if v.paused {
 			// Snapshot the history: sampling continues in the background,
 			// but cursor positions and annotations need stable timestamps.
+			// A scrolled-back view keeps its position; the cursor starts at
+			// the visible right edge.
 			v.frozen = append([]sampler.Sample(nil), v.rec.History...)
-			v.cursor = len(v.frozen) - 1
+			v.clampScroll(len(v.frozen))
+			v.cursor = len(v.frozen) - 1 - v.scroll
 		} else {
-			v.frozen, v.cursor, v.mark = nil, -1, -1
+			// Play fast-forwards to the live edge.
+			v.frozen, v.cursor, v.mark, v.scroll = nil, -1, -1, 0
 			v.notice = ""
 		}
 		return false, true
+	case km.left[key]:
+		if v.paused {
+			return false, v.moveCursor(-1)
+		}
+		return false, v.scrollBy(+1)
+	case km.right[key]:
+		if v.paused {
+			return false, v.moveCursor(+1)
+		}
+		return false, v.scrollBy(-1)
+	case km.ivUp[key]:
+		return false, v.adjustInterval(true)
+	case km.ivDown[key]:
+		return false, v.adjustInterval(false)
 	case !v.paused:
 		return false, false
 	case km.shot[key]:
 		v.screenshot(time.Now())
 		return false, true
-	case km.left[key]:
-		return false, v.moveCursor(-1)
-	case km.right[key]:
-		return false, v.moveCursor(+1)
 	case km.mark[key]:
 		if v.cursor >= 0 {
 			if v.mark >= 0 {
@@ -243,18 +284,66 @@ func (v *view) moveCursor(d int) bool {
 	if len(v.frozen) == 0 {
 		return false
 	}
-	c := v.cursor + d
-	if c < 0 {
-		c = 0
-	}
-	if c > len(v.frozen)-1 {
-		c = len(v.frozen) - 1
-	}
+	c := min(max(v.cursor+d, 0), len(v.frozen)-1)
 	if c == v.cursor {
 		return false
 	}
 	v.cursor = c
+	v.scrollTo(c)
 	return true
+}
+
+// adjustInterval walks the spec interval_steps ladder: up picks the next
+// larger step, down the next smaller one, so +/- always retrace the same
+// sequence. An off-ladder start value (--interval) snaps to the nearest
+// step in the pressed direction. The caller (Run) resets the ticker when
+// the interval changed.
+func (v *view) adjustInterval(up bool) bool {
+	if up {
+		for _, s := range v.ivSteps {
+			if s > v.interval {
+				v.interval = s
+				return true
+			}
+		}
+		return false
+	}
+	for i := len(v.ivSteps) - 1; i >= 0; i-- {
+		if v.ivSteps[i] < v.interval {
+			v.interval = v.ivSteps[i]
+			return true
+		}
+	}
+	return false
+}
+
+// scrollBy pans the live view through the recorded history; positive d moves
+// back in time. Returns whether the view changed.
+func (v *view) scrollBy(d int) bool {
+	old := v.scroll
+	v.scroll += d
+	v.clampScroll(len(v.rec.History))
+	return v.scroll != old
+}
+
+// scrollTo adjusts the scroll offset so frozen index i stays visible.
+func (v *view) scrollTo(i int) {
+	last := len(v.frozen) - 1 - v.scroll
+	if i > last {
+		v.scroll = len(v.frozen) - 1 - i
+	}
+	if first := len(v.frozen) - v.scroll - v.gwidth; i < first {
+		v.scroll = len(v.frozen) - v.gwidth - i
+	}
+	v.clampScroll(len(v.frozen))
+}
+
+// clampScroll bounds the scroll offset: at most one full screen of the
+// oldest samples remains visible, at least the live edge.
+func (v *view) clampScroll(histLen int) int {
+	v.scroll = min(v.scroll, max(histLen-v.gwidth, 0))
+	v.scroll = max(v.scroll, 0)
+	return v.scroll
 }
 
 // commitNote turns the current cursor/mark span and draft into an annotation.
@@ -324,12 +413,28 @@ func (v *view) frame(cols, rows int) []string {
 		Procs   int
 	}{v.meta.Target, v.meta.RootPID, v.last.Procs})
 
+	hist := v.rec.History
+	if v.paused && v.frozen != nil {
+		hist = v.frozen
+	}
+	width := cols - 2
+	v.gwidth = width
+	edge := hist // untruncated history, for the scroll-lag readout
+	if s := v.clampScroll(len(hist)); s > 0 {
+		hist = hist[:len(hist)-s]
+	}
+
 	var elapsed string
 	if v.rec.Samples > 0 {
 		elapsed = format.Elapsed(v.rec.End.Sub(v.rec.Start))
 	}
 	right := fmt.Sprintf("%s %s · %s %s", l["interval"], v.interval, l["elapsed"], elapsed)
 	rightColor := dim
+	if v.scroll > 0 {
+		lag := format.Elapsed(edge[len(edge)-1].Time.Sub(hist[len(hist)-1].Time))
+		right = fmt.Sprintf("%s -%s · %s", l["scrolled"], lag, right)
+		rightColor = format.Fg(cfg.Theme["mem"])
+	}
 	if v.paused {
 		right = l["paused"] + " · " + right
 		rightColor = format.Fg(cfg.Theme["max"])
@@ -339,12 +444,6 @@ func (v *view) frame(cols, rows int) []string {
 	lines = append(lines, fmt.Sprintf("%s%s%s%s%s%s", format.Fg(cfg.Theme["title"]), title.String(), off,
 		pad(cols-visibleWidth(title.String())-visibleWidth(right)), rightColor+right, off))
 	lines = append(lines, "")
-
-	hist := v.rec.History
-	if v.paused && v.frozen != nil {
-		hist = v.frozen
-	}
-	width := cols - 2
 	marks := v.columnMarks(hist, width)
 	cpu, mem := historyValues(hist)
 	if !v.have {
@@ -391,7 +490,7 @@ func (v *view) columnMarks(hist []sampler.Sample, width int) map[int]string {
 	}
 	start, offset := window(len(hist), width)
 	colOf := func(i int) (int, bool) { // absolute history index → column
-		if i < start {
+		if i < start || i >= len(hist) { // scrolled out on either side
 			return 0, false
 		}
 		return offset + (i - start), true
@@ -750,6 +849,8 @@ func (v *view) hintLine() string {
 	hints := l["hint_quit"] + "  " + l["hint_pause"]
 	if v.paused {
 		hints += "  " + l["hint_screenshot"] + "  " + l["hint_annotate"]
+	} else {
+		hints += "  " + l["hint_scroll"] + "  " + l["hint_interval"]
 	}
 	if v.notice != "" {
 		hints += "  " + v.notice

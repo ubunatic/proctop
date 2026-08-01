@@ -9,6 +9,9 @@ app:
 
 defaults:
   interval: 1s
+  # [+]/[-] walk this ascending ladder of sampling intervals; an off-ladder
+  # start value (--interval) snaps to the next step in the pressed direction
+  interval_steps: [100ms, 200ms, 500ms, 1s, 2s, 5s, 10s, 30s, 1m]
   history: 300
   graph_height: 5
   format: color
@@ -17,6 +20,8 @@ keys:
   quit: ["q", "Q", "<c-c>", "<esc>"]
   pause: ["p", "P", "<space>"]
   screenshot: ["s", "S"]
+  interval_up: ["+"]
+  interval_down: ["-"]
   # pause-mode annotation keys
   cursor_left: ["<left>", "h"]
   cursor_right: ["<right>", "l"]
@@ -63,9 +68,12 @@ labels:
   hint_pause: "[p] pause/play"
   hint_screenshot: "[s] screenshot"
   hint_annotate: "[←→] move  [v] mark  [a] note"
+  hint_scroll: "[←→] scroll"
+  hint_interval: "[+-] interval"
   hint_note: "[enter] save · [esc] cancel"
   note_prompt: "note:"
   paused: "⏸ paused (still recording)"
+  scrolled: "⏪ history"
   saved: "📷 saved"
   waiting: "sampling…"
 
