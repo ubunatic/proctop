@@ -1,0 +1,9 @@
+version = 1
+SPDX-PackageName = "proctop"
+SPDX-PackageSupplier = "Uwe Jugel <uwe.jugel@gmail.com>"
+SPDX-PackageDownloadLocation = "https://codeberg.org/ubunatic/proctop"
+
+[[annotations]]
+path = "**"
+SPDX-FileCopyrightText = "2026 Uwe Jugel"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

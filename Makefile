@@ -23,6 +23,9 @@ validate-spec: ⚙️  # run spec integrity tests
 
 check: ⚙️ vet test  # vet + tests
 
+reuse: ⚙️  # verify license compliance linting
+	reuse lint
+
 install: ⚙️  # install proctop into GOBIN
 	go install .
 
