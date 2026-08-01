@@ -1,0 +1,14 @@
+proctop — firefox (pid 202378, 24 procs)     ⏸ paused (still recording) · interval 1s · elapsed 0:03
+
+CPU  76.1%      min 36.0%  max 76.1% @16:24:31
+                                                                                                   █
+                                                                                                 ▁ █
+                                                                                                ▅█▃█
+                                                                                                ████
+                                                                                                ████
+MEM  4.6GiB     min 4.6GiB  max 4.6GiB @16:24:31
+                                                                                                ████
+                                                                                                ████
+                                                                                                ████
+                                                                                                ████
+                                                                                                ████

@@ -16,6 +16,7 @@ defaults:
 keys:
   quit: ["q", "Q", "<c-c>", "<esc>"]
   pause: ["p", "P", "<space>"]
+  screenshot: ["s", "S"]
 
 # 256-color ANSI palette indices per semantic token.
 theme:
@@ -41,7 +42,9 @@ labels:
   interval: "interval"
   hint_quit: "[q] quit"
   hint_pause: "[p] pause/play"
+  hint_screenshot: "[s] screenshot"
   paused: "⏸ paused (still recording)"
+  saved: "📷 saved"
   waiting: "sampling…"
 
 formats:
@@ -50,6 +53,14 @@ formats:
   plain: "{{.Time}} cpu={{.CPU}}% mem={{.Mem}} procs={{.Procs}}"
   color: '{{fg "dim"}}{{.Time}}{{off}} cpu={{fg "cpu"}}{{.CPU}}%{{off}} mem={{fg "mem"}}{{.Mem}}{{off}} procs={{.Procs}}'
   time: "2006-01-02T15:04:05"
+
+screenshot:
+  # Filename template (no extension); fields: .Target .Time
+  name: "proctop-{{.Target}}-{{.Time}}"
+  # Go time layout for .Time — must be filename-safe (no colons)
+  time: "20060102-150405"
+  # Written formats: txt = colors stripped, ansi = raw escapes (view: cat)
+  formats: ["txt", "ansi"]
 
 summary:
   # Human-readable summary printed on exit.

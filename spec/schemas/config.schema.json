@@ -3,7 +3,7 @@
   "title": "proctop config spec",
   "type": "object",
   "additionalProperties": false,
-  "required": ["app", "defaults", "keys", "theme", "graph", "labels", "formats", "summary"],
+  "required": ["app", "defaults", "keys", "theme", "graph", "labels", "formats", "screenshot", "summary"],
   "properties": {
     "app": {
       "type": "object",
@@ -28,10 +28,11 @@
     "keys": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["quit", "pause"],
+      "required": ["quit", "pause", "screenshot"],
       "properties": {
         "quit": { "$ref": "#/definitions/keyList" },
-        "pause": { "$ref": "#/definitions/keyList" }
+        "pause": { "$ref": "#/definitions/keyList" },
+        "screenshot": { "$ref": "#/definitions/keyList" }
       }
     },
     "theme": {
@@ -59,7 +60,7 @@
     "labels": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cpu", "mem", "procs", "min", "max", "avg", "elapsed", "interval", "hint_quit", "hint_pause", "paused", "waiting"],
+      "required": ["cpu", "mem", "procs", "min", "max", "avg", "elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot", "paused", "saved", "waiting"],
       "properties": {
         "cpu": { "type": "string" },
         "mem": { "type": "string" },
@@ -71,7 +72,9 @@
         "interval": { "type": "string" },
         "hint_quit": { "type": "string" },
         "hint_pause": { "type": "string" },
+        "hint_screenshot": { "type": "string" },
         "paused": { "type": "string" },
+        "saved": { "type": "string" },
         "waiting": { "type": "string" }
       }
     },
@@ -83,6 +86,21 @@
         "plain": { "type": "string", "description": "Go text/template; fields: .Time .CPU .Mem .Procs" },
         "color": { "type": "string", "description": "Like plain; extra funcs: fg <token>, off" },
         "time": { "type": "string", "description": "Go time layout for .Time" }
+      }
+    },
+    "screenshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "time", "formats"],
+      "properties": {
+        "name": { "type": "string", "description": "Filename template without extension; fields: .Target .Time" },
+        "time": { "type": "string", "description": "Go time layout for .Time; must be filename-safe" },
+        "formats": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["txt", "ansi"] }
+        }
       }
     },
     "summary": {

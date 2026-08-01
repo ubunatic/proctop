@@ -49,7 +49,9 @@ func TestSpecSchemaExists(t *testing.T) {
 
 func TestSpecKeysResolve(t *testing.T) {
 	cfg := load(t)
-	keySets := map[string][]string{"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause}
+	keySets := map[string][]string{
+		"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause, "screenshot": cfg.Keys.Screenshot,
+	}
 	for name, keys := range keySets {
 		if len(keys) == 0 {
 			t.Fatalf("keys.%s must not be empty", name)
@@ -68,13 +70,34 @@ func TestSpecKeysResolve(t *testing.T) {
 
 func TestSpecKeysNoOverlap(t *testing.T) {
 	cfg := load(t)
-	quit := make(map[string]bool)
-	for _, k := range cfg.Keys.Quit {
-		quit[ResolveKey(k)] = true
+	owner := make(map[string]string)
+	for name, keys := range map[string][]string{
+		"quit": cfg.Keys.Quit, "pause": cfg.Keys.Pause, "screenshot": cfg.Keys.Screenshot,
+	} {
+		for _, k := range keys {
+			r := ResolveKey(k)
+			if prev, taken := owner[r]; taken {
+				t.Errorf("key %q bound to both %s and %s", k, prev, name)
+			}
+			owner[r] = name
+		}
 	}
-	for _, k := range cfg.Keys.Pause {
-		if quit[ResolveKey(k)] {
-			t.Errorf("key %q bound to both quit and pause", k)
+}
+
+func TestSpecScreenshot(t *testing.T) {
+	cfg := load(t)
+	if _, err := template.New("shot").Parse(cfg.Screenshot.Name); err != nil {
+		t.Errorf("screenshot.name does not parse: %v", err)
+	}
+	if strings.ContainsAny(cfg.Screenshot.Time, ":/ ") {
+		t.Errorf("screenshot.time %q is not filename-safe", cfg.Screenshot.Time)
+	}
+	if len(cfg.Screenshot.Formats) == 0 {
+		t.Fatal("screenshot.formats must not be empty")
+	}
+	for _, f := range cfg.Screenshot.Formats {
+		if f != "txt" && f != "ansi" {
+			t.Errorf("screenshot format %q not supported", f)
 		}
 	}
 }
@@ -93,7 +116,8 @@ func TestSpecLabels(t *testing.T) {
 	cfg := load(t)
 	// Labels the Go code looks up; each must exist and be non-empty.
 	for _, key := range []string{"cpu", "mem", "procs", "min", "max", "avg",
-		"elapsed", "interval", "hint_quit", "hint_pause", "paused", "waiting"} {
+		"elapsed", "interval", "hint_quit", "hint_pause", "hint_screenshot",
+		"paused", "saved", "waiting"} {
 		if cfg.Labels[key] == "" {
 			t.Errorf("label %q missing or empty", key)
 		}

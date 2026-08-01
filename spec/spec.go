@@ -32,8 +32,9 @@ type Config struct {
 		Format      string `yaml:"format"`
 	} `yaml:"defaults"`
 	Keys struct {
-		Quit  []string `yaml:"quit"`
-		Pause []string `yaml:"pause"`
+		Quit       []string `yaml:"quit"`
+		Pause      []string `yaml:"pause"`
+		Screenshot []string `yaml:"screenshot"`
 	} `yaml:"keys"`
 	Theme map[string]uint8 `yaml:"theme"`
 	Graph struct {
@@ -45,6 +46,11 @@ type Config struct {
 		Color string `yaml:"color"`
 		Time  string `yaml:"time"`
 	} `yaml:"formats"`
+	Screenshot struct {
+		Name    string   `yaml:"name"`
+		Time    string   `yaml:"time"`
+		Formats []string `yaml:"formats"`
+	} `yaml:"screenshot"`
 	Summary struct {
 		Text string `yaml:"text"`
 	} `yaml:"summary"`
