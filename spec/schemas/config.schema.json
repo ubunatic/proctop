@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "proctop config spec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["app", "defaults", "keys", "theme", "graph", "labels", "formats", "summary"],
+  "properties": {
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "title"],
+      "properties": {
+        "name": { "type": "string" },
+        "title": { "type": "string", "description": "Go text/template; fields: .Target .RootPID .Procs" }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interval", "history", "graph_height", "format"],
+      "properties": {
+        "interval": { "type": "string", "description": "Go duration string, e.g. 1s" },
+        "history": { "type": "integer", "minimum": 10 },
+        "graph_height": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "format": { "enum": ["plain", "color", "json"] }
+      }
+    },
+    "keys": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quit"],
+      "properties": {
+        "quit": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "description": "Literal key or named alias: <esc> <c-c> <cr> <space>" }
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "mem", "label", "dim", "max", "min", "title"],
+      "properties": {
+        "cpu": { "$ref": "#/definitions/color256" },
+        "mem": { "$ref": "#/definitions/color256" },
+        "label": { "$ref": "#/definitions/color256" },
+        "dim": { "$ref": "#/definitions/color256" },
+        "max": { "$ref": "#/definitions/color256" },
+        "min": { "$ref": "#/definitions/color256" },
+        "title": { "$ref": "#/definitions/color256" }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["levels"],
+      "properties": {
+        "levels": { "type": "string", "description": "9 runes: empty + 8 partial block levels" }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "mem", "procs", "min", "max", "avg", "elapsed", "interval", "hint_quit", "waiting"],
+      "properties": {
+        "cpu": { "type": "string" },
+        "mem": { "type": "string" },
+        "procs": { "type": "string" },
+        "min": { "type": "string" },
+        "max": { "type": "string" },
+        "avg": { "type": "string" },
+        "elapsed": { "type": "string" },
+        "interval": { "type": "string" },
+        "hint_quit": { "type": "string" },
+        "waiting": { "type": "string" }
+      }
+    },
+    "formats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plain", "color", "time"],
+      "properties": {
+        "plain": { "type": "string", "description": "Go text/template; fields: .Time .CPU .Mem .Procs" },
+        "color": { "type": "string", "description": "Like plain; extra funcs: fg <token>, off" },
+        "time": { "type": "string", "description": "Go time layout for .Time" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "description": "Go text/template for the exit summary" }
+      }
+    }
+  },
+  "definitions": {
+    "color256": { "type": "integer", "minimum": 0, "maximum": 255 }
+  }
+}

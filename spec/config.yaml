@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=schemas/config.schema.json
+#
+# proctop spec — single source of truth for user-facing text, colors, keys,
+# output templates, and defaults. Go code must not duplicate these values.
+
+app:
+  name: proctop
+  title: "proctop — {{.Target}} (pid {{.RootPID}}, {{.Procs}} procs)"
+
+defaults:
+  interval: 1s
+  history: 300
+  graph_height: 5
+  format: color
+
+keys:
+  quit: ["q", "Q", "<c-c>", "<esc>"]
+
+# 256-color ANSI palette indices per semantic token.
+theme:
+  cpu: 214
+  mem: 39
+  label: 252
+  dim: 244
+  max: 203
+  min: 78
+  title: 255
+
+graph:
+  levels: " ▁▂▃▄▅▆▇█"
+
+labels:
+  cpu: "CPU"
+  mem: "MEM"
+  procs: "procs"
+  min: "min"
+  max: "max"
+  avg: "avg"
+  elapsed: "elapsed"
+  interval: "interval"
+  hint_quit: "[q] quit"
+  waiting: "sampling…"
+
+formats:
+  # Per-sample line templates. Fields: .Time .CPU .Mem .Procs
+  # {{fg "token"}} emits the ANSI color for a theme token, {{off}} resets.
+  plain: "{{.Time}} cpu={{.CPU}}% mem={{.Mem}} procs={{.Procs}}"
+  color: '{{fg "dim"}}{{.Time}}{{off}} cpu={{fg "cpu"}}{{.CPU}}%{{off}} mem={{fg "mem"}}{{.Mem}}{{off}} procs={{.Procs}}'
+  time: "2006-01-02T15:04:05"
+
+summary:
+  # Human-readable summary printed on exit.
+  # Fields: .Target .RootPID .Start .End .Elapsed .Samples
+  #         .CPUMax .CPUMaxTime .CPUMin .CPUAvg
+  #         .MemMax .MemMaxTime .MemMin .MemAvg
+  text: |
+    proctop summary — {{.Target}} (pid {{.RootPID}})
+      window   {{.Start}} … {{.End}} ({{.Elapsed}}, {{.Samples}} samples)
+      cpu      max {{.CPUMax}}% @ {{.CPUMaxTime}} · min {{.CPUMin}}% · avg {{.CPUAvg}}%
+      mem      max {{.MemMax}} @ {{.MemMaxTime}} · min {{.MemMin}} · avg {{.MemAvg}}
