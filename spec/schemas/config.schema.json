@@ -42,7 +42,7 @@
     "theme": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cpu", "mem", "label", "dim", "max", "min", "title", "cursor", "select", "annot"],
+      "required": ["cpu", "mem", "label", "dim", "max", "min", "title", "cursor", "select", "annot", "label_bg", "connector"],
       "properties": {
         "cpu": { "$ref": "#/definitions/color256" },
         "mem": { "$ref": "#/definitions/color256" },
@@ -53,17 +53,22 @@
         "title": { "$ref": "#/definitions/color256" },
         "cursor": { "$ref": "#/definitions/color256" },
         "select": { "$ref": "#/definitions/color256" },
-        "annot": { "$ref": "#/definitions/color256" }
+        "annot": { "$ref": "#/definitions/color256" },
+        "label_bg": { "$ref": "#/definitions/color256" },
+        "connector": { "$ref": "#/definitions/color256" }
       }
     },
     "graph": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["levels", "marker", "label_width"],
+      "required": ["levels", "marker", "label_width", "label_box", "label_cap", "label_line"],
       "properties": {
         "levels": { "type": "string", "description": "9 runes: empty + 8 partial block levels" },
-        "marker": { "type": "string", "minLength": 1, "description": "Glyph at an annotated column when its label is drawn in-graph" },
-        "label_width": { "type": "integer", "minimum": 4, "description": "Max rune length of in-graph labels" }
+        "marker": { "type": "string", "minLength": 1, "description": "Glyph at an annotated column when label_cap is none" },
+        "label_width": { "type": "integer", "minimum": 4, "description": "Max rune length of in-graph labels" },
+        "label_box": { "enum": ["brackets", "box", "none"], "description": "Label boxing: [Test], 3-row box art, or bare text" },
+        "label_cap": { "enum": ["none", "simple", "arrow"], "description": "Connector tip pointing at the column; none uses the marker glyph" },
+        "label_line": { "enum": ["none", "border", "minus"], "description": "Connector line between label and cap" }
       }
     },
     "labels": {

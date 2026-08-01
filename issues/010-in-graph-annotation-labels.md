@@ -1,6 +1,6 @@
 # 010 — In-graph annotation labels with arrows
 
-Status: done (2026-08-01)
+Status: done (2026-08-01), styling tuned same day
 
 Implemented as specced below. The marker overlays bars when needed (only
 the text requires blank space — mock-up style, arrows touch the data);
@@ -9,6 +9,19 @@ Marker glyph and max label width are spec-defined (`graph.marker`,
 `graph.label_width`, notes truncated with `…`). Verified in a pty: label
 placed in the graph's blank area, pointing at the column, traveling with
 the graph after resume, included in screenshots.
+
+Tuning addendum: labels are styled via spec —
+`graph.label_box: brackets|box|none` (box = 3-row box art with single-row
+bracket fallback when vertical space is short),
+`graph.label_cap: none|simple|arrow` (none points with the marker glyph),
+`graph.label_line: none|border|minus`, and the label text/box carries the
+`theme.label_bg` background. Default renders `[Test]──▶`.
+
+Color/position fixes: the connector/marker uses its own `theme.connector`
+token (default white) — reusing `annot` made the arrow invisible against
+the annotated-area highlight — and the connector tip points at the
+**area's edge** (left edge for labels placed before the area, right edge
+for the right-side fallback) instead of the span center.
 
 ## Motivation
 

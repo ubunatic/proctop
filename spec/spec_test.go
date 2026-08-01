@@ -112,7 +112,7 @@ func TestSpecThemeTokens(t *testing.T) {
 	cfg := load(t)
 	// Tokens the Go code looks up; each must exist in the spec theme.
 	for _, tok := range []string{"cpu", "mem", "label", "dim", "max", "min", "title",
-		"cursor", "select", "annot"} {
+		"cursor", "select", "annot", "label_bg", "connector"} {
 		if _, ok := cfg.Theme[tok]; !ok {
 			t.Errorf("theme token %q missing", tok)
 		}
@@ -141,6 +141,23 @@ func TestSpecGraphLevels(t *testing.T) {
 	}
 	if cfg.Graph.LabelWidth < 4 {
 		t.Errorf("graph.label_width = %d, want >= 4", cfg.Graph.LabelWidth)
+	}
+	// Style enums the Go code switches on.
+	valid := map[string][]string{
+		"label_box":  {"brackets", "box", "none"},
+		"label_cap":  {"none", "simple", "arrow"},
+		"label_line": {"none", "border", "minus"},
+	}
+	for field, got := range map[string]string{
+		"label_box": cfg.Graph.LabelBox, "label_cap": cfg.Graph.LabelCap, "label_line": cfg.Graph.LabelLine,
+	} {
+		ok := false
+		for _, v := range valid[field] {
+			ok = ok || v == got
+		}
+		if !ok {
+			t.Errorf("graph.%s = %q, not in %v", field, got, valid[field])
+		}
 	}
 }
 

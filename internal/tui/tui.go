@@ -426,10 +426,71 @@ func (v *view) columnMarks(hist []sampler.Sample, width int) map[int]string {
 	return marks
 }
 
-// cell is one in-graph label character with its color.
+// cell is one in-graph label character with its colors. An empty bg keeps
+// the column-highlight background (if any).
 type cell struct {
 	r  rune
 	fg string
+	bg string
+}
+
+// labelGlyphs resolves the spec label style to concrete runes.
+type labelGlyphs struct {
+	open, close rune // single-row deco ('[', ']'; 0 = none)
+	line        rune // connector line (0 = none)
+	capL, capR  rune // connector tips (0 = use marker glyph instead)
+	boxArt      bool // 3-row box art requested
+}
+
+func newLabelGlyphs(cfg *spec.Config) labelGlyphs {
+	g := labelGlyphs{}
+	switch cfg.Graph.LabelBox {
+	case "brackets":
+		g.open, g.close = '[', ']'
+	case "box":
+		g.open, g.close = '[', ']' // single-row fallback deco
+		g.boxArt = true
+	}
+	switch cfg.Graph.LabelLine {
+	case "border":
+		g.line = '─'
+	case "minus":
+		g.line = '-'
+	}
+	switch cfg.Graph.LabelCap {
+	case "simple":
+		g.capL, g.capR = '<', '>'
+	case "arrow":
+		g.capL, g.capR = '◀', '▶'
+	}
+	return g
+}
+
+// connector returns the runes between label and column, cap-side last for
+// left placement ("──▶") and cap-side first for right placement ("◀──").
+func (g labelGlyphs) connector(left bool) []rune {
+	if g.capL == 0 {
+		return nil // cap none: the marker glyph points at the column instead
+	}
+	var line []rune
+	if g.line != 0 {
+		line = []rune{g.line, g.line}
+	}
+	if left {
+		return append(line, g.capR)
+	}
+	return append([]rune{g.capL}, line...)
+}
+
+// deco wraps the note text in the single-row box decoration.
+func (g labelGlyphs) deco(text []rune) []rune {
+	if g.open == 0 {
+		return text
+	}
+	out := make([]rune, 0, len(text)+2)
+	out = append(out, g.open)
+	out = append(out, text...)
+	return append(out, g.close)
 }
 
 // placeLabels lays annotation notes into blank areas of the raw graph grids
@@ -445,8 +506,10 @@ func (v *view) placeLabels(hist []sampler.Sample, width int, grids [2][]string) 
 		return overlays
 	}
 	start, offset := window(len(hist), width)
-	markerFg := format.Fg(v.cfg.Theme["annot"])
+	glyphs := newLabelGlyphs(v.cfg)
+	connFg := format.Fg(v.cfg.Theme["connector"]) // distinct from the annot highlight bg
 	labelFg := format.Fg(v.cfg.Theme["label"])
+	labelBg := format.Bg(v.cfg.Theme["label_bg"])
 	marker := []rune(v.cfg.Graph.Marker)[0]
 
 	var rows [2][][]rune
@@ -457,7 +520,7 @@ func (v *view) placeLabels(hist []sampler.Sample, width int, grids [2][]string) 
 		}
 	}
 	free := func(gi, row, from, to int) bool { // inclusive column range
-		if from < 0 || to >= width || row >= len(rows[gi]) {
+		if from < 0 || to >= width || row < 0 || row >= len(rows[gi]) {
 			return false
 		}
 		for c := from; c <= to; c++ {
@@ -470,20 +533,104 @@ func (v *view) placeLabels(hist []sampler.Sample, width int, grids [2][]string) 
 		}
 		return true
 	}
-	// The marker may overlay a bar (mock-up style: the arrow touches the
-	// data); it only must not collide with another label.
-	markerOK := func(gi, row, col int) bool {
-		if col < 0 || col >= width || row >= len(rows[gi]) {
+	// Connector and marker cells may overlay bars (mock-up style: the arrow
+	// touches the data); they only must not collide with another label.
+	overlayOK := func(gi, row, from, to int) bool {
+		if from < 0 || to >= width || row < 0 || row >= len(rows[gi]) {
 			return false
 		}
-		_, used := overlays[gi][row][col]
-		return !used
+		for c := from; c <= to; c++ {
+			if _, used := overlays[gi][row][c]; used {
+				return false
+			}
+		}
+		return true
 	}
-	put := func(gi, row, col int, r rune, fg string) {
+	put := func(gi, row, col int, c cell) {
 		if overlays[gi][row] == nil {
 			overlays[gi][row] = map[int]cell{}
 		}
-		overlays[gi][row][col] = cell{r, fg}
+		overlays[gi][row][col] = c
+	}
+	putRunes := func(gi, row, col int, rs []rune, c cell) {
+		for k, r := range rs {
+			c.r = r
+			put(gi, row, col+k, c)
+		}
+	}
+
+	// putConn writes the connector (or the marker when cap is none) on one
+	// row so that its tip lands on col. connCols reports the cells it needs.
+	connCols := func(conn []rune, col int, left bool) (from, to int) {
+		cw := max(len(conn), 1) // cap none: the marker occupies the column cell
+		if left {
+			return col - cw + 1, col
+		}
+		return col, col + cw - 1
+	}
+	putConn := func(gi, row, col int, conn []rune, left bool) {
+		if len(conn) == 0 {
+			put(gi, row, col, cell{r: marker, fg: connFg})
+			return
+		}
+		from, _ := connCols(conn, col, left)
+		putRunes(gi, row, from, conn, cell{fg: connFg})
+	}
+
+	// placeRow puts "deco conn" (pointing at the area's left edge) or
+	// "conn deco" (pointing at its right edge) on one row.
+	placeRow := func(gi, row, colL, colR int, deco []rune) bool {
+		for _, left := range []bool{true, false} {
+			col := colL
+			if !left {
+				col = colR
+			}
+			conn := glyphs.connector(left)
+			cFrom, cTo := connCols(conn, col, left)
+			dFrom := cFrom - len(deco)
+			if !left {
+				dFrom = cTo + 1
+			}
+			if free(gi, row, dFrom, dFrom+len(deco)-1) && overlayOK(gi, row, cFrom, cTo) {
+				putRunes(gi, row, dFrom, deco, cell{fg: labelFg, bg: labelBg})
+				putConn(gi, row, col, conn, left)
+				return true
+			}
+		}
+		return false
+	}
+
+	// placeBox puts a 3-row box-art label with the connector on its middle
+	// row, pointing at the area edge like placeRow.
+	placeBox := func(gi, row, colL, colR int, text []rune) bool {
+		w := len(text) + 2
+		top := []rune("┌" + strings.Repeat("─", len(text)) + "┐")
+		mid := append(append([]rune{'│'}, text...), '│')
+		bot := []rune("└" + strings.Repeat("─", len(text)) + "┘")
+		boxCell := cell{fg: labelFg, bg: labelBg}
+		for _, left := range []bool{true, false} {
+			col := colL
+			if !left {
+				col = colR
+			}
+			conn := glyphs.connector(left)
+			cFrom, cTo := connCols(conn, col, left)
+			bStart := cFrom - w
+			if !left {
+				bStart = cTo + 1
+			}
+			fits := free(gi, row, bStart, bStart+w-1) && free(gi, row+1, bStart, bStart+w-1) &&
+				free(gi, row+2, bStart, bStart+w-1) && overlayOK(gi, row+1, cFrom, cTo)
+			if !fits {
+				continue
+			}
+			putRunes(gi, row, bStart, top, boxCell)
+			putRunes(gi, row+1, bStart, mid, boxCell)
+			putRunes(gi, row+2, bStart, bot, boxCell)
+			putConn(gi, row+1, col, conn, left)
+			return true
+		}
+		return false
 	}
 
 	for _, a := range v.rec.Annotations {
@@ -499,31 +646,29 @@ func (v *view) placeLabels(hist []sampler.Sample, width int, grids [2][]string) 
 		if first < 0 {
 			continue // annotation scrolled out of view
 		}
-		col := offset + ((first+last)/2 - start)
+		// The label points at the area's edge: left edge when the label sits
+		// before the area, right edge for the right-side fallback.
+		colL := offset + (first - start)
+		colR := offset + (last - start)
 		text := []rune(a.Note)
 		if maxw := v.cfg.Graph.LabelWidth; len(text) > maxw {
 			text = append(text[:maxw-1], '…')
 		}
+		placed := false
+		if glyphs.boxArt {
+			for gi := range rows {
+				for row := 0; row+2 < len(rows[gi]) && !placed; row++ {
+					placed = placeBox(gi, row, colL, colR, text)
+				}
+				if placed {
+					break
+				}
+			}
+		}
+		deco := glyphs.deco(text)
 		for gi := range rows {
-			placed := false
 			for row := 0; row < len(rows[gi]) && !placed; row++ {
-				if !markerOK(gi, row, col) {
-					continue
-				}
-				switch {
-				case free(gi, row, col-len(text), col-1):
-					put(gi, row, col, marker, markerFg)
-					for k, r := range text {
-						put(gi, row, col-len(text)+k, r, labelFg)
-					}
-					placed = true
-				case free(gi, row, col+1, col+len(text)):
-					put(gi, row, col, marker, markerFg)
-					for k, r := range text {
-						put(gi, row, col+1+k, r, labelFg)
-					}
-					placed = true
-				}
+				placed = placeRow(gi, row, colL, colR, deco)
 			}
 			if placed {
 				break
@@ -542,15 +687,18 @@ func renderRow(raw string, overlay map[int]cell, marks map[int]string, baseFg st
 	var sb strings.Builder
 	cur := baseFg
 	for i, r := range []rune(raw) {
-		fg, rr := baseFg, r
+		fg, rr, bg := baseFg, r, marks[i]
 		if c, ok := overlay[i]; ok {
 			fg, rr = c.fg, c.r
+			if c.bg != "" {
+				bg = c.bg
+			}
 		}
 		if fg != cur {
 			sb.WriteString(fg)
 			cur = fg
 		}
-		if bg := marks[i]; bg != "" {
+		if bg != "" {
 			sb.WriteString(bg)
 			sb.WriteRune(rr)
 			sb.WriteString("\x1b[49m") // reset background only

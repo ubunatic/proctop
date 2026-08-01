@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"codeberg.org/ubunatic/proctop/internal/format"
 	"codeberg.org/ubunatic/proctop/internal/proc"
 	"codeberg.org/ubunatic/proctop/internal/sampler"
 	"codeberg.org/ubunatic/proctop/spec"
@@ -189,48 +190,127 @@ func TestAnnotateFlow(t *testing.T) {
 	}
 }
 
+// rowString renders an overlay row as plain runes over a blank line.
+func rowString(row map[int]cell, width int) string {
+	rs := make([]rune, width)
+	for i := range rs {
+		rs[i] = ' '
+	}
+	for c, cl := range row {
+		rs[c] = cl.r
+	}
+	return string(rs)
+}
+
 func TestPlaceLabels(t *testing.T) {
-	v := testView(t) // 4 history samples
+	v := testView(t) // 4 history samples; default style: brackets+arrow+border
 	hist := v.rec.History
 	v.rec.Annotate(sampler.Annotation{Start: hist[2].Time, End: hist[2].Time, Note: "ab"})
 
-	// width 10 → start=0, offset=6; sample 2 → col 8; blank 2-row grids.
-	blank := []string{"          ", "          "}
-	overlays := v.placeLabels(hist, 10, [2][]string{blank, blank})
-
-	marker := []rune(v.cfg.Graph.Marker)[0]
+	// width 12 → start=0, offset=8; sample 2 → col 10; blank 2-row grids.
+	blank := []string{"            ", "            "}
+	overlays := v.placeLabels(hist, 12, [2][]string{blank, blank})
 	row0 := overlays[0][0]
 	if row0 == nil {
 		t.Fatal("label must land on the first blank CPU row")
 	}
-	if row0[8].r != marker {
-		t.Errorf("marker at col 8 = %q, want %q", row0[8].r, marker)
+	if got := rowString(row0, 12); got != "    [ab]──▶ " {
+		t.Errorf("assembly = %q, want %q", got, "    [ab]──▶ ")
 	}
-	if row0[6].r != 'a' || row0[7].r != 'b' {
-		t.Errorf("text left of marker = %q%q, want ab", row0[6].r, row0[7].r)
+	for _, c := range []int{4, 5, 6, 7} { // deco cells carry the label bg
+		if row0[c].bg == "" {
+			t.Errorf("deco cell %d has no background", c)
+		}
+	}
+	if row0[10].bg != "" {
+		t.Error("connector cap must not carry the label background")
+	}
+	if fg := row0[10].fg; fg != format.Fg(v.cfg.Theme["connector"]) {
+		t.Errorf("connector fg %q must use the connector theme token", fg)
 	}
 	if len(overlays[1]) != 0 {
 		t.Error("label must not repeat on the MEM graph")
 	}
 
-	// A bar at the marker column is overlaid — only the text needs space.
-	bars := []string{"        ██", "        ██"}
-	overlays = v.placeLabels(hist, 10, [2][]string{bars, blank})
-	if row0 = overlays[0][0]; row0 == nil || row0[8].r != marker || row0[6].r != 'a' {
-		t.Error("marker must overlay a bar when the text fits beside it")
+	// Bars at the connector columns are overlaid — only the deco needs space.
+	bars := []string{"        ████", "        ████"}
+	overlays = v.placeLabels(hist, 12, [2][]string{bars, blank})
+	if row0 = overlays[0][0]; row0 == nil || row0[10].r != '▶' || row0[5].r != 'a' {
+		t.Error("connector must overlay bars when the deco fits beside it")
 	}
 
 	// Occupied CPU rows push the label to the MEM graph.
-	full := []string{"██████████", "██████████"}
-	overlays = v.placeLabels(hist, 10, [2][]string{full, blank})
+	full := []string{"████████████", "████████████"}
+	overlays = v.placeLabels(hist, 12, [2][]string{full, blank})
 	if len(overlays[0]) != 0 || overlays[1][0] == nil {
 		t.Error("label must fall through to the MEM graph when CPU rows are occupied")
 	}
 
 	// Nothing free anywhere: label is skipped entirely.
-	overlays = v.placeLabels(hist, 10, [2][]string{full, full})
+	overlays = v.placeLabels(hist, 12, [2][]string{full, full})
 	if len(overlays[0]) != 0 || len(overlays[1]) != 0 {
 		t.Error("label must be skipped when no blank space exists")
+	}
+}
+
+func TestPlaceLabelsPointsAtAreaEdge(t *testing.T) {
+	v := testView(t) // 4 history samples
+	hist := v.rec.History
+	// Range annotation over samples 1..3 → width 12, offset 8: cols 9..11.
+	v.rec.Annotate(sampler.Annotation{Start: hist[1].Time, End: hist[3].Time, Note: "ab"})
+
+	blank := []string{"            ", "            "}
+	overlays := v.placeLabels(hist, 12, [2][]string{blank, blank})
+	if got := rowString(overlays[0][0], 12); got != "   [ab]──▶  " {
+		t.Errorf("assembly = %q, want %q (tip at the area's left edge)", got, "   [ab]──▶  ")
+	}
+}
+
+func TestPlaceLabelsCapNone(t *testing.T) {
+	v := testView(t)
+	v.cfg.Graph.LabelBox, v.cfg.Graph.LabelCap, v.cfg.Graph.LabelLine = "none", "none", "none"
+	hist := v.rec.History
+	v.rec.Annotate(sampler.Annotation{Start: hist[2].Time, End: hist[2].Time, Note: "ab"})
+
+	bars := []string{"          ██", "          ██"} // col 10 occupied by a bar
+	overlays := v.placeLabels(hist, 12, [2][]string{bars, bars})
+	row0 := overlays[0][0]
+	if row0 == nil {
+		t.Fatal("marker label must place on the CPU row")
+	}
+	marker := []rune(v.cfg.Graph.Marker)[0]
+	if got := rowString(row0, 12); got != "        ab"+string(marker)+" " {
+		t.Errorf("assembly = %q, want %q", got, "        ab"+string(marker)+" ")
+	}
+}
+
+func TestPlaceLabelsBoxArt(t *testing.T) {
+	v := testView(t)
+	v.cfg.Graph.LabelBox = "box"
+	hist := v.rec.History
+	v.rec.Annotate(sampler.Annotation{Start: hist[2].Time, End: hist[2].Time, Note: "ab"})
+
+	// width 20 → offset 16, sample 2 → col 18; four blank rows fit the box.
+	blankRow := strings.Repeat(" ", 20)
+	grid := []string{blankRow, blankRow, blankRow, blankRow}
+	overlays := v.placeLabels(hist, 20, [2][]string{grid, grid})
+	want := []string{
+		"            ┌──┐    ",
+		"            │ab│──▶ ",
+		"            └──┘    ",
+		"                    ",
+	}
+	for ri, w := range want {
+		if got := rowString(overlays[0][ri], 20); got != w {
+			t.Errorf("box row %d = %q, want %q", ri, got, w)
+		}
+	}
+
+	// Too little vertical space: falls back to the single-row bracket label.
+	short := []string{blankRow, blankRow}
+	overlays = v.placeLabels(hist, 20, [2][]string{short, short})
+	if got := rowString(overlays[0][0], 20); !strings.Contains(got, "[ab]──▶") {
+		t.Errorf("fallback row = %q, want bracket assembly", got)
 	}
 }
 
@@ -242,8 +322,11 @@ func TestFrameInGraphLabel(t *testing.T) {
 	if got := strings.Count(joined, "spike-here"); got != 2 {
 		t.Errorf("note should appear in-graph and in the list (2×), got %d×:\n%s", got, joined)
 	}
-	if !strings.Contains(joined, v.cfg.Graph.Marker) {
-		t.Error("marker glyph missing from frame")
+	if !strings.Contains(joined, "[spike-here]") {
+		t.Error("bracket deco missing from frame")
+	}
+	if !strings.Contains(joined, "▶") {
+		t.Error("connector cap missing from frame")
 	}
 }
 

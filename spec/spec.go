@@ -45,6 +45,9 @@ type Config struct {
 		Levels     string `yaml:"levels"`
 		Marker     string `yaml:"marker"`
 		LabelWidth int    `yaml:"label_width"`
+		LabelBox   string `yaml:"label_box"`
+		LabelCap   string `yaml:"label_cap"`
+		LabelLine  string `yaml:"label_line"`
 	} `yaml:"graph"`
 	Labels  map[string]string `yaml:"labels"`
 	Formats struct {

@@ -36,13 +36,19 @@ theme:
   cursor: 252
   select: 240
   annot: 24
+  label_bg: 237
+  connector: 255
 
 graph:
   levels: " ▁▂▃▄▅▆▇█"
-  # marker placed at an annotated column when its label is drawn in-graph
+  # marker placed at an annotated column when label_cap is none
   marker: "▼"
   # max rune length of in-graph labels (longer notes are truncated with …)
   label_width: 24
+  # floating label style: [Test]──▶ pointing at the annotated column
+  label_box: brackets # brackets | box (3-row box art, falls back to brackets) | none
+  label_cap: arrow    # none (use marker) | simple (> <) | arrow (▶ ◀)
+  label_line: border  # none | border (──) | minus (--)
 
 labels:
   cpu: "CPU"
