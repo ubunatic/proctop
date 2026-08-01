@@ -96,6 +96,16 @@ When the root itself exits, proctop exits with the summary.
 - Export files never receive ANSI colors from TUI mode (`color` downgrades
   to `plain` for `--out`).
 
+## Licensing
+
+REUSE 3.3 compliant (`make reuse`) via a **blanket annotation** in
+`REUSE.toml`: all files are `AGPL-3.0-or-later`, copyright 2026 Uwe Jugel,
+license text in `LICENSES/`. New files are covered automatically — no
+per-file SPDX headers needed (loom adds them anyway; here we rely on the
+blanket, like uman). On Fedora, `reuse lint` prints python3-debian/apt
+warnings; that noise is suppressed host-wide in the dotfiles
+(`PYTHONWARNINGS="ignore:::debian.debian_support"`), not in the Makefile.
+
 ## Related
 
 - [Testing.md](Testing.md) — test layers and the pty harness

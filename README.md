@@ -62,3 +62,7 @@ JSON summary on exit.
 - `issues/` — planned features ([index](issues/README.md))
 
 Build with `make build`, test with `make check`.
+
+## License
+
+AGPL-3.0-or-later — see `LICENSES/`. REUSE compliant (`make reuse`).
