@@ -85,6 +85,41 @@ When the root itself exits, proctop exits with the summary.
 `)`. Man-page field N maps to `fields[N-3]` after that split — see
 `parseStat` and its test.
 
+## Pause, annotations, and in-graph labels
+
+Added after the MVP (issues 008–010); these decisions shape all TUI work:
+
+- **Pause freezes rendering only.** Sampling, peaks, and file export
+  continue; resuming fast-forwards the display with no data gap.
+- **Pause snapshots the history** (`view.frozen`). The graph would
+  otherwise advance on every cursor repaint, so stable cursor targets
+  require a frozen copy while the recorder keeps growing underneath.
+- **Annotations are pegged to sample timestamps, never column indexes**
+  (`sampler.Annotation{Start, End, Note}`). Every frame re-matches
+  visible columns against annotation spans, so highlights travel with
+  the graph after resume and scroll off naturally; the note list and the
+  summary JSON (`annotations: [{time, span, note}]`) outlive the window.
+- **`frame() []string` + `paint()` split**: frame builds styled lines
+  with no cursor-control sequences; paint adds `ESC[H/K/J`. One renderer
+  feeds the terminal, screenshots (`.txt` stripped / `.ansi` raw), and
+  unit tests.
+- **`view.handleKey` owns all interaction** (pause toggle, cursor, mark,
+  note input, screenshot) and returns `(quit, dirty)` — the whole key
+  flow is unit-testable without a pty. Enter/Esc/Backspace during note
+  input and Ctrl-C are structural hardcoded keys; everything else is
+  spec-bound.
+- **In-graph labels** (`[note]──▶`): placed by `placeLabels` onto the raw
+  rune grids before colorization — only the label/box needs blank cells,
+  the connector/marker may overlay bars (mock-up style). Fall-through:
+  CPU rows top-down, then MEM, else skip (highlight + list still identify
+  the annotation). Styling is spec-driven (`graph.label_box/cap/line`,
+  3-row box art falls back to brackets). Two hard-won rules:
+  - the connector needs its **own color token** (`theme.connector`) — it
+    originally reused `annot`, the same index the area highlight uses as
+    background, making the arrow invisible on top of it;
+  - the connector tip points at the **area's edge** (left edge normally,
+    right edge for the right-side fallback), not the span center.
+
 ## Rendering notes
 
 - Graphs use 1/8-block characters (`▁▂▃▄▅▆▇█` from the spec) — each
@@ -95,6 +130,8 @@ When the root itself exits, proctop exits with the summary.
   80×24 (found via the pty test harness — see [Testing.md](Testing.md)).
 - Export files never receive ANSI colors from TUI mode (`color` downgrades
   to `plain` for `--out`).
+- The frame has no height clamping: notes list + graphs can exceed small
+  terminals ([issue 011](../issues/011-frame-overflow-small-terminals.md)).
 
 ## Licensing
 

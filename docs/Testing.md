@@ -50,6 +50,15 @@ during development (renderer computed width −2) and is now guarded in
 `internal/tui`, but any new size-dependent code must handle non-positive
 sizes.
 
+## Interaction tests without a pty
+
+`view.handleKey(key) (quit, dirty)` holds all TUI interaction, so key
+flows are plain unit tests: resolve spec keys with `spec.ResolveKey`,
+feed them through `handleKey`, assert on the view/recorder state (see
+`TestAnnotateFlow` — pause → cursor → mark → type → commit → resume).
+Reserve the pty harness for what units can't see: escape-sequence
+output, alt-screen behavior, and visual layout.
+
 ## Pitfalls seen in this repo's own verification
 
 - `timeout N ./proctop --stream ... | head` can show **nothing at all**
@@ -58,6 +67,13 @@ sizes.
 - Verify name-target resolution against reality: `pgrep` + `/proc/<pid>/
   cmdline` exposed the Firefox dbus stub that broke the naive heuristic
   (see [Design.md](Design.md), target resolution).
+- Unit tests pass ≠ visible on screen. The in-graph labels shipped green
+  but never appeared against real Firefox data: flat full-height bars
+  occupied every marker cell, and the placement rule "marker cell must be
+  blank" silently skipped every label. A second visual-only bug —
+  connector colored like the highlight background — was spotted by the
+  user in real use. Always follow rendering changes with a pty run
+  against live data and *look at the frame*.
 
 ## Related
 

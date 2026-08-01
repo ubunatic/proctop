@@ -17,3 +17,5 @@ Planned features and known gaps. One file per issue,
 | [008](008-tui-pause-play.md) | TUI pause/play without losing samples | done |
 | [009](009-pause-annotations-screenshot.md) | Annotations + screenshot in pause mode | done |
 | [010](010-in-graph-annotation-labels.md) | In-graph annotation labels with arrows | done |
+| [011](011-frame-overflow-small-terminals.md) | Frame overflow on small terminals | open |
+| [012](012-annotation-management.md) | Manage annotations: delete, edit, persist | open |
