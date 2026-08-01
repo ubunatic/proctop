@@ -136,6 +136,12 @@ func TestSpecGraphLevels(t *testing.T) {
 	if n := len([]rune(cfg.Graph.Levels)); n != 9 {
 		t.Errorf("graph.levels must be 9 runes (empty + 8 levels), got %d", n)
 	}
+	if len([]rune(cfg.Graph.Marker)) < 1 {
+		t.Error("graph.marker must be at least one rune")
+	}
+	if cfg.Graph.LabelWidth < 4 {
+		t.Errorf("graph.label_width = %d, want >= 4", cfg.Graph.LabelWidth)
+	}
 }
 
 func TestSpecTemplatesParse(t *testing.T) {

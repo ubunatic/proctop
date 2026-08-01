@@ -22,7 +22,8 @@ proctop -o usage.log -s summary.json firefox   # export samples + summary
   column cursor, `v` marks a range, `a` attaches a note (Enter saves,
   Esc cancels) — annotations are pegged to sample timestamps, stay
   highlighted as the graph moves on, are listed below the graphs, and
-  land in the summary JSON. `s` saves the frame as `.txt` and `.ansi`
+  land in the summary JSON. Notes are also drawn inside the graph
+  (`opening tabs▼` pointing at the column) wherever blank space allows. `s` saves the frame as `.txt` and `.ansi`
   screenshots (`proctop-<target>-<ts>.*`, never overwriting), including
   annotations. Quit with `q` — the exit summary is printed to the normal
   screen.

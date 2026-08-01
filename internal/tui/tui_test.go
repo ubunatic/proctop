@@ -189,6 +189,64 @@ func TestAnnotateFlow(t *testing.T) {
 	}
 }
 
+func TestPlaceLabels(t *testing.T) {
+	v := testView(t) // 4 history samples
+	hist := v.rec.History
+	v.rec.Annotate(sampler.Annotation{Start: hist[2].Time, End: hist[2].Time, Note: "ab"})
+
+	// width 10 → start=0, offset=6; sample 2 → col 8; blank 2-row grids.
+	blank := []string{"          ", "          "}
+	overlays := v.placeLabels(hist, 10, [2][]string{blank, blank})
+
+	marker := []rune(v.cfg.Graph.Marker)[0]
+	row0 := overlays[0][0]
+	if row0 == nil {
+		t.Fatal("label must land on the first blank CPU row")
+	}
+	if row0[8].r != marker {
+		t.Errorf("marker at col 8 = %q, want %q", row0[8].r, marker)
+	}
+	if row0[6].r != 'a' || row0[7].r != 'b' {
+		t.Errorf("text left of marker = %q%q, want ab", row0[6].r, row0[7].r)
+	}
+	if len(overlays[1]) != 0 {
+		t.Error("label must not repeat on the MEM graph")
+	}
+
+	// A bar at the marker column is overlaid — only the text needs space.
+	bars := []string{"        ██", "        ██"}
+	overlays = v.placeLabels(hist, 10, [2][]string{bars, blank})
+	if row0 = overlays[0][0]; row0 == nil || row0[8].r != marker || row0[6].r != 'a' {
+		t.Error("marker must overlay a bar when the text fits beside it")
+	}
+
+	// Occupied CPU rows push the label to the MEM graph.
+	full := []string{"██████████", "██████████"}
+	overlays = v.placeLabels(hist, 10, [2][]string{full, blank})
+	if len(overlays[0]) != 0 || overlays[1][0] == nil {
+		t.Error("label must fall through to the MEM graph when CPU rows are occupied")
+	}
+
+	// Nothing free anywhere: label is skipped entirely.
+	overlays = v.placeLabels(hist, 10, [2][]string{full, full})
+	if len(overlays[0]) != 0 || len(overlays[1]) != 0 {
+		t.Error("label must be skipped when no blank space exists")
+	}
+}
+
+func TestFrameInGraphLabel(t *testing.T) {
+	v := testView(t)
+	hist := v.rec.History
+	v.rec.Annotate(sampler.Annotation{Start: hist[1].Time, End: hist[1].Time, Note: "spike-here"})
+	joined := stripANSI(strings.Join(v.frame(90, 24), "\n"))
+	if got := strings.Count(joined, "spike-here"); got != 2 {
+		t.Errorf("note should appear in-graph and in the list (2×), got %d×:\n%s", got, joined)
+	}
+	if !strings.Contains(joined, v.cfg.Graph.Marker) {
+		t.Error("marker glyph missing from frame")
+	}
+}
+
 func TestAnnotateEscCancels(t *testing.T) {
 	v := testView(t)
 	press(t, v, "p", "a")

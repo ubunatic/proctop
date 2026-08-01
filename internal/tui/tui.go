@@ -350,15 +350,21 @@ func (v *view) frame(cols, rows int) []string {
 	if !v.have {
 		lines = append(lines, dim+l["waiting"]+off)
 	} else {
+		levels := []rune(cfg.Graph.Levels)
+		cpuRows := graph(cpu, width, height, levels)
+		memRows := graph(mem, width, height, levels)
+		overlays := v.placeLabels(hist, width, [2][]string{cpuRows, memRows})
+		cpuFg := format.Fg(cfg.Theme["cpu"])
+		memFg := format.Fg(cfg.Theme["mem"])
 		lines = append(lines, statLine(l["cpu"], format.Pct(v.last.CPUPct)+"%", format.Pct(v.rec.CPUMin.Value)+"%",
 			format.Pct(v.rec.CPUMax.Value)+"%", v.rec.CPUMax.Time, cfg))
-		for _, g := range graph(cpu, width, height, []rune(cfg.Graph.Levels)) {
-			lines = append(lines, "  "+format.Fg(cfg.Theme["cpu"])+markCols(g, marks)+off)
+		for ri, g := range cpuRows {
+			lines = append(lines, "  "+cpuFg+renderRow(g, overlays[0][ri], marks, cpuFg)+off)
 		}
 		lines = append(lines, statLine(l["mem"], format.Bytes(float64(v.last.RSS)), format.Bytes(v.rec.MemMin.Value),
 			format.Bytes(v.rec.MemMax.Value), v.rec.MemMax.Time, cfg))
-		for _, g := range graph(mem, width, height, []rune(cfg.Graph.Levels)) {
-			lines = append(lines, "  "+format.Fg(cfg.Theme["mem"])+markCols(g, marks)+off)
+		for ri, g := range memRows {
+			lines = append(lines, "  "+memFg+renderRow(g, overlays[1][ri], marks, memFg)+off)
 		}
 	}
 	lines = append(lines, v.infoLines(hist)...)
@@ -367,17 +373,23 @@ func (v *view) frame(cols, rows int) []string {
 	return lines
 }
 
+// window returns the first visible history index and the left padding
+// offset for a graph of the given width.
+func window(histLen, width int) (start, offset int) {
+	if histLen > width {
+		start = histLen - width
+	}
+	offset = width - (histLen - start)
+	return start, offset
+}
+
 // columnMarks maps visible graph columns to highlight sequences: annotated
 // spans (matched by sample timestamp), the selection range, and the cursor.
 func (v *view) columnMarks(hist []sampler.Sample, width int) map[int]string {
 	if width < 1 || len(hist) == 0 {
 		return nil
 	}
-	start := 0
-	if len(hist) > width {
-		start = len(hist) - width
-	}
-	offset := width - (len(hist) - start)
+	start, offset := window(len(hist), width)
 	colOf := func(i int) (int, bool) { // absolute history index → column
 		if i < start {
 			return 0, false
@@ -414,19 +426,136 @@ func (v *view) columnMarks(hist []sampler.Sample, width int) map[int]string {
 	return marks
 }
 
-// markCols applies background highlights to single columns of a graph line.
-func markCols(line string, marks map[int]string) string {
-	if len(marks) == 0 {
-		return line
+// cell is one in-graph label character with its color.
+type cell struct {
+	r  rune
+	fg string
+}
+
+// placeLabels lays annotation notes into blank areas of the raw graph grids
+// so they sit next to their annotated column (mock-up style: "note ▼").
+// grids[0] is the CPU graph, grids[1] the MEM graph; the returned overlays
+// use the same indexing (graph → row → column). The marker glyph lands on
+// the annotated column; the text goes left of it when there is blank space,
+// right of it otherwise. Labels that fit nowhere are skipped — the column
+// highlight and the note list below still identify the annotation.
+func (v *view) placeLabels(hist []sampler.Sample, width int, grids [2][]string) [2]map[int]map[int]cell {
+	overlays := [2]map[int]map[int]cell{{}, {}}
+	if len(hist) == 0 || width < 1 || len(v.rec.Annotations) == 0 {
+		return overlays
+	}
+	start, offset := window(len(hist), width)
+	markerFg := format.Fg(v.cfg.Theme["annot"])
+	labelFg := format.Fg(v.cfg.Theme["label"])
+	marker := []rune(v.cfg.Graph.Marker)[0]
+
+	var rows [2][][]rune
+	for gi, g := range grids {
+		rows[gi] = make([][]rune, len(g))
+		for ri, line := range g {
+			rows[gi][ri] = []rune(line)
+		}
+	}
+	free := func(gi, row, from, to int) bool { // inclusive column range
+		if from < 0 || to >= width || row >= len(rows[gi]) {
+			return false
+		}
+		for c := from; c <= to; c++ {
+			if rows[gi][row][c] != ' ' {
+				return false
+			}
+			if _, used := overlays[gi][row][c]; used {
+				return false
+			}
+		}
+		return true
+	}
+	// The marker may overlay a bar (mock-up style: the arrow touches the
+	// data); it only must not collide with another label.
+	markerOK := func(gi, row, col int) bool {
+		if col < 0 || col >= width || row >= len(rows[gi]) {
+			return false
+		}
+		_, used := overlays[gi][row][col]
+		return !used
+	}
+	put := func(gi, row, col int, r rune, fg string) {
+		if overlays[gi][row] == nil {
+			overlays[gi][row] = map[int]cell{}
+		}
+		overlays[gi][row][col] = cell{r, fg}
+	}
+
+	for _, a := range v.rec.Annotations {
+		first, last := -1, -1 // visible covered sample range
+		for i := start; i < len(hist); i++ {
+			if a.Covers(hist[i].Time) {
+				if first < 0 {
+					first = i
+				}
+				last = i
+			}
+		}
+		if first < 0 {
+			continue // annotation scrolled out of view
+		}
+		col := offset + ((first+last)/2 - start)
+		text := []rune(a.Note)
+		if maxw := v.cfg.Graph.LabelWidth; len(text) > maxw {
+			text = append(text[:maxw-1], '…')
+		}
+		for gi := range rows {
+			placed := false
+			for row := 0; row < len(rows[gi]) && !placed; row++ {
+				if !markerOK(gi, row, col) {
+					continue
+				}
+				switch {
+				case free(gi, row, col-len(text), col-1):
+					put(gi, row, col, marker, markerFg)
+					for k, r := range text {
+						put(gi, row, col-len(text)+k, r, labelFg)
+					}
+					placed = true
+				case free(gi, row, col+1, col+len(text)):
+					put(gi, row, col, marker, markerFg)
+					for k, r := range text {
+						put(gi, row, col+1+k, r, labelFg)
+					}
+					placed = true
+				}
+			}
+			if placed {
+				break
+			}
+		}
+	}
+	return overlays
+}
+
+// renderRow merges a raw graph line with in-graph label cells and column
+// background highlights, switching colors only where needed.
+func renderRow(raw string, overlay map[int]cell, marks map[int]string, baseFg string) string {
+	if len(overlay) == 0 && len(marks) == 0 {
+		return raw
 	}
 	var sb strings.Builder
-	for i, r := range []rune(line) {
-		if seq := marks[i]; seq != "" {
-			sb.WriteString(seq)
-			sb.WriteRune(r)
+	cur := baseFg
+	for i, r := range []rune(raw) {
+		fg, rr := baseFg, r
+		if c, ok := overlay[i]; ok {
+			fg, rr = c.fg, c.r
+		}
+		if fg != cur {
+			sb.WriteString(fg)
+			cur = fg
+		}
+		if bg := marks[i]; bg != "" {
+			sb.WriteString(bg)
+			sb.WriteRune(rr)
 			sb.WriteString("\x1b[49m") // reset background only
 		} else {
-			sb.WriteRune(r)
+			sb.WriteRune(rr)
 		}
 	}
 	return sb.String()

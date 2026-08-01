@@ -59,9 +59,11 @@
     "graph": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["levels"],
+      "required": ["levels", "marker", "label_width"],
       "properties": {
-        "levels": { "type": "string", "description": "9 runes: empty + 8 partial block levels" }
+        "levels": { "type": "string", "description": "9 runes: empty + 8 partial block levels" },
+        "marker": { "type": "string", "minLength": 1, "description": "Glyph at an annotated column when its label is drawn in-graph" },
+        "label_width": { "type": "integer", "minimum": 4, "description": "Max rune length of in-graph labels" }
       }
     },
     "labels": {

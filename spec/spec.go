@@ -42,7 +42,9 @@ type Config struct {
 	} `yaml:"keys"`
 	Theme map[string]uint8 `yaml:"theme"`
 	Graph struct {
-		Levels string `yaml:"levels"`
+		Levels     string `yaml:"levels"`
+		Marker     string `yaml:"marker"`
+		LabelWidth int    `yaml:"label_width"`
 	} `yaml:"graph"`
 	Labels  map[string]string `yaml:"labels"`
 	Formats struct {

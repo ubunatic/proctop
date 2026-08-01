@@ -16,3 +16,4 @@ Planned features and known gaps. One file per issue,
 | [007](007-app-integration-tests.md) | Integration tests for internal/app and the TUI | open |
 | [008](008-tui-pause-play.md) | TUI pause/play without losing samples | done |
 | [009](009-pause-annotations-screenshot.md) | Annotations + screenshot in pause mode | done |
+| [010](010-in-graph-annotation-labels.md) | In-graph annotation labels with arrows | done |

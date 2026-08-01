@@ -39,6 +39,10 @@ theme:
 
 graph:
   levels: " ▁▂▃▄▅▆▇█"
+  # marker placed at an annotated column when its label is drawn in-graph
+  marker: "▼"
+  # max rune length of in-graph labels (longer notes are truncated with …)
+  label_width: 24
 
 labels:
   cpu: "CPU"
