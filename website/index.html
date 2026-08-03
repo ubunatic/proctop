@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>proctop - watch CPU/MEM of a process tree over time</title>
+  <meta name="description" content="proctop watches one process and its whole process tree, recording CPU and memory usage over time as a live TUI graph or a plain, colored, or JSON line stream. Peaks are tracked and a summary is printed on exit.">
+
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="stylesheet" href="index.css">
+  <script src="index.js" defer></script>
+</head>
+<body>
+  <header class="site-head">
+    <nav class="wrap nav" aria-label="Main navigation">
+      <a class="brand" href="#top">
+        <img class="brand-icon" src="logo.svg" alt="proctop logo">
+        <span>proctop</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#usage">Usage</a>
+        <a href="#keys">Keys</a>
+        <a href="#how">How it works</a>
+        <a class="btn" href="https://codeberg.org/ubunatic/proctop" rel="noopener">Codeberg</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <div class="wrap hero-shell">
+      <section aria-label="proctop overview">
+        <p class="badge">Linux process monitor</p>
+        <h1><span class="name">proctop</span> watches a whole process tree.</h1>
+        <p class="lede">
+          <code>proctop</code> watches <strong>one process and its process tree</strong>
+          (all children, recursively) and records CPU and memory usage over time — as a
+          live TUI graph or as a plain, colored, or JSON line stream. Peaks are tracked
+          and a summary is printed on exit.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="#install">Install</a>
+          <a class="btn" href="https://codeberg.org/ubunatic/proctop" rel="noopener">Browse the source</a>
+        </div>
+        <p class="hero-note">
+          Early days: no tagged release yet — install from <code>main</code>.
+          Linux only (reads <code>/proc</code>). AGPL-3.0-or-later.
+        </p>
+      </section>
+
+      <section class="terminal" aria-label="proctop screenshot">
+        <div class="terminal-header">
+          <div class="terminal-controls">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <span class="terminal-title">proctop firefox</span>
+          <span style="width: 50px;"></span>
+        </div>
+        <pre class="terminal-body" aria-label="Recorded proctop frame"><span class="t-head">proctop — firefox (pid 202378, 24 procs)    ⏸ paused (still recording) · interval 1s · elapsed 12:10</span>
+
+<span class="t-label">CPU  23.0%      min 15.0%  max 178.5% @17:07:49</span>
+<span class="t-cpu">                                     ▁                                                 █</span>
+<span class="t-cpu">                                     █▆▇▆                                              █</span>
+<span class="t-cpu">                                    ▄████    ▁                                 ▄▂      █</span>
+<span class="t-cpu">  ▂▁▂▂▂▁▂▃▁ █▁▂▁▁▅▁▃▁ ▃▁▃▁▁▁▆▃▂ ▂ ▄▃█████▆▆▄▇█▂▂▁▃▂▂▁▃▂▃▂▃▄▃▂▁▄▂▃▂▃▂▃▂▁▃█▁▁▄▂▃▃██      █         ▆</span>
+<span class="t-cpu">  ███████████████████████████████████████████████████████████████████████████████▅▆▆▅▅▆█▄▅▄▆▅▄▇▅▄█▇▆</span>
+<span class="t-label">MEM  3.4GiB     min 3.3GiB  max 3.8GiB @17:10:33</span>
+<span class="t-mem">  ██████████▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇███████████▇▇▇█████████████████████▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▆▆▆▆▆▅▅▅▅▅▆▆▅</span>
+<span class="t-mem">  ██████████████████████████████████████████████████████████████████████████████████████████████████</span>
+<span class="t-mem">  ██████████████████████████████████████████████████████████████████████████████████████████████████</span>
+<span class="t-mem">  ██████████████████████████████████████████████████████████████████████████████████████████████████</span>
+<span class="t-mem">  ██████████████████████████████████████████████████████████████████████████████████████████████████</span>
+<span class="t-cur">▶ 17:08:01 cpu 27.0% mem 3.3GiB</span>
+<span class="t-note">● 17:06:57–17:07:03 cpu 0.0% mem 0B — note 1</span>
+<span class="t-note">● 17:07:46–17:07:51 cpu 0.0% mem 0B — note 2</span></pre>
+      </section>
+      <p class="caption">
+        A real captured frame (<code>[s]</code> writes <code>.txt</code> and <code>.ansi</code>
+        screenshots): 24 Firefox processes over 12 minutes, paused mid-recording, with the
+        cursor parked on a sample and two annotated spans.
+      </p>
+    </div>
+
+    <section id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">What it <span>does</span></h2>
+          <p class="section-desc">
+            One binary, no daemon, no agent. Point it at a name or a PID and it follows
+            the whole tree from there.
+          </p>
+        </div>
+
+        <div class="grid">
+          <article class="card">
+            <div class="card-icon">🌳</div>
+            <h3>Whole-tree sampling</h3>
+            <p>Follows a process and every descendant. The tree is re-discovered every tick, so processes that fork after you start are picked up automatically.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon">📈</div>
+            <h3>Live TUI graph</h3>
+            <p>CPU% and RSS drawn as scrolling sparkline bars, with running min, max, and the timestamp each peak occurred at.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon">🧾</div>
+            <h3>Three line formats</h3>
+            <p><code>plain</code>, <code>color</code>, and <code>json</code> streams — one sample per line. Piping to a file or another process switches to stream mode on its own.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon">🏔️</div>
+            <h3>Peaks and summary</h3>
+            <p>Max, min, and average for both CPU and memory, with peak timestamps. Printed on exit and optionally appended to a JSON file.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon">📌</div>
+            <h3>Marks and notes</h3>
+            <p>Pause, scroll back through history, mark a span with <code>v</code>, and attach a note with <code>a</code>. Annotations land in the JSON summary.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon">📸</div>
+            <h3>Screenshots</h3>
+            <p><code>s</code> writes the current frame to both a plain <code>.txt</code> and a colored <code>.ansi</code> file — paste-ready for bug reports.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="usage">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">Usage</h2>
+          <p class="section-desc">
+            <code>proctop [flags] &lt;name|pid&gt;</code> — exactly one target. A name resolves to
+            the topmost match with the largest subtree.
+          </p>
+        </div>
+
+        <div class="code-panel">
+          <pre class="code-body"><span class="c-prompt">$</span> proctop firefox            <span class="c-comment"># live TUI graph (q to quit)</span>
+<span class="c-prompt">$</span> proctop 4242               <span class="c-comment"># watch by PID</span>
+<span class="c-prompt">$</span> proctop <span class="c-flag">-f</span> plain firefox   <span class="c-comment"># stream one line per second</span>
+<span class="c-prompt">$</span> proctop <span class="c-flag">-f</span> json  firefox   <span class="c-comment"># JSON lines for machine consumption</span>
+<span class="c-prompt">$</span> proctop <span class="c-flag">-o</span> usage.log <span class="c-flag">-s</span> summary.json firefox   <span class="c-comment"># export samples + summary</span></pre>
+        </div>
+
+        <h3 style="margin: 38px 0 14px; font-size: 1.1rem;">Flags</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Flag</th><th>Default</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>-i, --interval</code></td><td><code>1s</code></td><td>sampling interval</td></tr>
+              <tr><td><code>-f, --format</code></td><td><code>color</code></td><td>line format: plain|color|json (implies <code>--stream</code>)</td></tr>
+              <tr><td><code>-o, --out</code></td><td>—</td><td>append per-sample lines to this file</td></tr>
+              <tr><td><code>-s, --summary</code></td><td>—</td><td>append JSON summary to this file on exit</td></tr>
+              <tr><td><code>-n, --history</code></td><td><code>300</code></td><td>samples kept for graph and history</td></tr>
+              <tr><td><code>--stream</code></td><td><code>false</code></td><td>print sample lines instead of the TUI</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="keys">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">Keys in the <span>live graph</span></h2>
+          <p class="section-desc">
+            Pausing keeps recording — you can scroll back through history without losing
+            samples, then resume.
+          </p>
+        </div>
+
+        <div class="keys">
+          <span class="key"><b>q</b> <span>quit</span></span>
+          <span class="key"><b>p</b> / <b>space</b> <span>pause &amp; play</span></span>
+          <span class="key"><b>s</b> <span>screenshot</span></span>
+          <span class="key"><b>← →</b> <span>move cursor / scroll time</span></span>
+          <span class="key"><b>v</b> <span>mark a span</span></span>
+          <span class="key"><b>a</b> <span>annotate</span></span>
+          <span class="key"><b>+</b> / <b>-</b> <span>interval up &amp; down</span></span>
+          <span class="key"><b>enter</b> / <b>esc</b> <span>save &amp; cancel a note</span></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">How it <span>works</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Sampling</h3>
+            <p>Reads <code>/proc/&lt;pid&gt;/stat</code> for every process in the tree, once per interval. No ptrace, no kernel module, no elevated privileges for your own processes.</p>
+          </article>
+          <article class="card">
+            <h3>CPU%</h3>
+            <p>Deltas of <code>utime + stime</code> ticks, expressed as percent of a single core and summed across the tree — so a busy multi-core tree legitimately exceeds 100%.</p>
+          </article>
+          <article class="card">
+            <h3>Memory</h3>
+            <p>RSS pages converted to bytes and summed. Shared pages are counted once per process, so tree totals over-report shared memory — treat it as an upper bound.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">Install</h2>
+          <p class="section-desc">
+            Go 1.26 or newer. There is no tagged release yet, so <code>@latest</code>
+            tracks the tip of <code>main</code>.
+          </p>
+        </div>
+        <div class="code-panel">
+          <pre class="code-body"><span class="c-prompt">$</span> go install codeberg.org/ubunatic/proctop@latest
+
+<span class="c-comment"># or from a clone</span>
+<span class="c-prompt">$</span> git clone https://codeberg.org/ubunatic/proctop
+<span class="c-prompt">$</span> cd proctop &amp;&amp; make install</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-flex">
+      <p>&copy; <span id="year">2026</span> Uwe Jugel. Licensed under AGPL-3.0-or-later.</p>
+      <p>Source code: <a href="https://codeberg.org/ubunatic/proctop" rel="noopener">codeberg.org/ubunatic/proctop</a></p>
+    </div>
+  </footer>
+</body>
+</html>
