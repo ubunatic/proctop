@@ -41,8 +41,9 @@ func newRootCmd() *cobra.Command {
 		stream      bool
 	)
 	cmd := &cobra.Command{
-		Use:   cfg.App.Name + " [flags] <name|pid>",
-		Short: "watch CPU/MEM of a process tree over time",
+		Use:     cfg.App.Name + " [flags] <name|pid>",
+		Version: Version,
+		Short:   "watch CPU/MEM of a process tree over time",
 		Long: cfg.App.Name + ` watches one process and all its children (by name or PID)
 and records CPU%% and RSS once per interval.
 

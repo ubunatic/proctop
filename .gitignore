@@ -1,2 +1,3 @@
 # ignore Go binaries
 /proctop
+/dist/

@@ -23,6 +23,10 @@ validate-spec: ⚙️  # run spec integrity tests
 
 check: ⚙️ vet test  # vet + tests
 
+release: check ⚙️  # cut release via harnez
+	harnez release
+
+
 reuse: ⚙️  # verify license compliance linting
 	reuse lint
 
