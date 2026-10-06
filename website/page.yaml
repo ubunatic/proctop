@@ -1,0 +1,148 @@
+# SPDX-FileCopyrightText: 2026 Uwe Jugel
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# yaml-language-server: $schema=../spec/schemas/page.schema.json
+
+title: proctop — whole-process-tree monitor
+kicker: Linux process monitor
+title_lead: proctop
+title_main: watches a whole process tree.
+lead: >-
+  proctop watches one process and its descendants and records CPU and memory over time. Follow a
+  live TUI graph or stream plain, colored, or JSON samples; peaks and a summary are tracked on exit.
+logo:
+  src: logo.svg
+  alt: proctop logo
+install: go install codeberg.org/ubunatic/proctop@latest
+cta_primary:
+  label: Install
+  href: "#install"
+cta_secondary:
+  label: Browse the source
+  href: https://codeberg.org/ubunatic/proctop
+
+sections:
+  - id: sample
+    tag: Recorded TUI frame
+    title: A real capture of Firefox and its child processes
+    blocks:
+      - text: >-
+          This frame was captured after twelve minutes of recording. The display is paused while
+          sampling continues; the cursor is parked on a sample and two spans carry notes.
+      - text: |-
+          ```text
+          proctop — firefox (pid 202378, 24 procs)    ⏸ paused (still recording) · interval 1s · elapsed 12:10
+
+          CPU  23.0%      min 15.0%  max 178.5% @17:07:49
+                                               ▁                                                 █
+                                               █▆▇▆                                              █
+                                              ▄████    ▁                                 ▄▂      █
+            ▂▁▂▂▂▁▂▃▁ █▁▂▁▁▅▁▃▁ ▃▁▃▁▁▁▆▃▂ ▂ ▄▃█████▆▆▄▇█▂▂▁▃▂▂▁▃▂▃▂▃▄▃▂▁▄▂▃▂▃▂▃▂▁▃█▁▁▄▂▃▃██      █         ▆
+            █████████████████████████████████████████████████████████████████████████████████████████████████
+          MEM  3.4GiB     min 3.3GiB  max 3.8GiB @17:10:33
+            ██████████▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇███████████▇▇▇█████████████████████▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▆▆▆▆▆▅▅▅▅▅▆▆▅
+            ██████████████████████████████████████████████████████████████████████████████████████████████████
+            ██████████████████████████████████████████████████████████████████████████████████████████████████
+            ██████████████████████████████████████████████████████████████████████████████████████████████████
+            ██████████████████████████████████████████████████████████████████████████████████████████████████
+          ▶ 17:08:01 cpu 27.0% mem 3.3GiB
+          ● 17:06:57–17:07:03 cpu 0.0% mem 0B — note 1
+          ● 17:07:46–17:07:51 cpu 0.0% mem 0B — note 2
+          ```
+
+  - id: features
+    tag: Features
+    title: Follow, inspect and export a process tree
+    blocks:
+      - cards:
+          - title: Whole-tree sampling
+            text: Follows every descendant and rediscovers the tree every tick, including processes that fork later.
+          - title: Live TUI graph
+            text: CPU and RSS sparklines with running minimum, maximum and peak timestamps.
+          - title: Stream formats
+            text: Plain, colored and JSON samples; piping output switches to stream mode automatically.
+          - title: Peaks and summary
+            text: CPU and memory min, max and average, with peak timestamps, printed on exit or appended to JSON.
+          - title: Marks and notes
+            text: Pause, scroll history, mark a span with `v`, and annotate with `a`; annotations appear in the JSON summary.
+          - title: Screenshots
+            text: Press `s` to save the current frame as plain `.txt` and colored `.ansi` files.
+
+  - id: usage
+    tag: Usage
+    title: Watch by process name or PID
+    blocks:
+      - text: >-
+          `proctop [flags] <name|pid>` accepts exactly one target. A process name resolves to the
+          topmost match with the largest subtree.
+      - text: |-
+          ```sh
+          proctop firefox            # live TUI graph (q to quit)
+          proctop 4242               # watch by PID
+          proctop -f plain firefox   # stream one line per second
+          proctop -f json firefox    # JSON lines for machine consumption
+          proctop -o usage.log -s summary.json firefox
+          ```
+      - text: |-
+          | Flag | Default | Description |
+          | --- | --- | --- |
+          | `-i, --interval` | `1s` | Sampling interval |
+          | `-f, --format` | `color` | `plain`, `color`, or `json` stream format |
+          | `-o, --out` | — | Append per-sample lines to this file |
+          | `-s, --summary` | — | Append a JSON summary on exit |
+          | `-n, --history` | `300` | Samples kept for graph and history |
+          | `--stream` | `false` | Print samples instead of the TUI |
+
+  - id: keys
+    tag: TUI keys
+    title: Navigate the live graph
+    blocks:
+      - facts:
+          - key: q
+            value: Quit.
+          - key: p / space
+            value: Pause and resume recording.
+          - key: left / right
+            value: Move the cursor and scroll through time.
+          - key: v
+            value: Mark a span.
+          - key: a
+            value: Add a note.
+          - key: enter / esc
+            value: Save or cancel a note.
+          - key: + / -
+            value: Increase or decrease the sampling interval.
+          - key: s
+            value: Save a screenshot to `.txt` and `.ansi` files.
+
+  - id: how
+    tag: How it works
+    title: Sample Linux process statistics
+    blocks:
+      - cards:
+          - title: Sampling
+            text: Reads `/proc/<pid>/stat` for each process once per interval; no ptrace, kernel module, or elevated privileges are needed for your own processes.
+          - title: CPU
+            text: Uses deltas of `utime + stime` ticks, as a percentage of one core summed across the tree; multi-core trees can exceed 100%.
+          - title: Memory
+            text: Sums resident-set pages converted to bytes. Shared pages are counted per process, so treat the tree total as an upper bound.
+
+  - id: install
+    tag: Install
+    title: Install with Go or from a clone
+    blocks:
+      - text: >-
+          Requires Go 1.26 or newer. proctop is Linux-only because it reads `/proc`.
+      - text: |-
+          ```sh
+          go install codeberg.org/ubunatic/proctop@latest
+
+          # or from a clone
+          git clone https://codeberg.org/ubunatic/proctop
+          cd proctop && make install
+          ```
+
+  - id: story
+    tag: Engineering story
+    title: Building a process monitor
+    blocks:
+      - text: Read the [proctop engineering story](https://codeberg.org/ubunatic/proctop/src/branch/main/docs/studies/2026-10-04-proctop-story.md).
